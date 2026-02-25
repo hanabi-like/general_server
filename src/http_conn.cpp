@@ -14,7 +14,7 @@ const char *error_404_form = "The requested file was not found on this server.\n
 const char *error_500_title = "Internal Error";
 const char *error_500_form = "There was an unusual problem serving the requested file.\n";
 
-const char *html_root = "/home/user/Desktop/WebServer/HTML";
+const char *html_root = "/home/user/general_server/frontend";
 
 void http_conn::init_mysql(mysql_conn_pool *connPool)
 {

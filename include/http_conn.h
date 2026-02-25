@@ -77,7 +77,7 @@ public:
     ~http_conn() {}
 
 public:
-    void init(int sockfd, const sockaddr_in &addr, string user = "root", string pwd = "root", string dbname = "webserverdb");
+    void init(int sockfd, const sockaddr_in &addr, string user = "user", string pwd = "180427", string dbname = "general_server");
     void close_http_conn(bool real_close = true);
     void process();
     bool read();

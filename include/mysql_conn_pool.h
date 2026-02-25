@@ -41,7 +41,7 @@ public:
 
     static mysql_conn_pool *getInstance();
 
-    void init(string url = "localhost", int port = 3306, string user = "root", string pwd = "root", string dbName = "webserverdb", int mxConn = 8);
+    void init(string url = "localhost", int port = 3306, string user = "user", string pwd = "180427", string dbName = "general_server", int mxConn = 8);
 };
 
 class connRAII
