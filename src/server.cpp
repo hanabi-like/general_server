@@ -1,25 +1,27 @@
+// C / C++ 标准库
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cerrno>
+#include <csignal>
+
+// 系统调用相关
+#include <unistd.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <cassert>
-#include <cstdio>
-#include <unistd.h>
-#include <cerrno>
-#include <cstring>
-#include <fcntl.h>
-#include <cstdlib>
 #include <sys/epoll.h>
 #include <pthread.h>
-#include <csignal>
 
+// 本地项目头文件
+#include "config.h"
 #include "locker.h"
 #include "threadpool.h"
 #include "http_conn.h"
 #include "mysql_conn_pool.h"
-
-#define MAX_FD 128
-#define MAX_EVENT_NUM 1024
 
 extern int addfd(int epollfd, int fd, bool one_shot);
 extern int removefd(int epollfd, int fd);
@@ -64,7 +66,7 @@ int main(int argc, char *argv[])
     const char *ip = argv[1];
     int port = atoi(argv[2]);
 
-    http_conn *users = new http_conn[MAX_FD];
+    http_conn *users = new http_conn[MAX_FD_NUM];
     assert(users);
 
     mysql_conn_pool *connPool = mysql_conn_pool::getInstance();
