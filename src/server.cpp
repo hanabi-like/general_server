@@ -18,23 +18,11 @@
 
 // 本地项目头文件
 #include "config.h"
+#include "fd_event.h"
 #include "locker.h"
 #include "threadpool.h"
 #include "http_conn.h"
 #include "mysql_conn_pool.h"
-
-extern int addfd(int epollfd, int fd, bool one_shot);
-extern int removefd(int epollfd, int fd);
-
-/*
-int setnonblocking(int fd)
-{
-    int old_option=fcntl(fd,F_GETFL);
-    int new_option=old_option|O_NONBLOCK;
-    fcntl(fd,F_SETFL,new_option);
-    return old_option;
-}
-*/
 
 static bool stop = false;
 // SIGTERM
@@ -42,17 +30,6 @@ static void handle_term(int sig)
 {
     stop = true;
 }
-
-/*
-void addfd(int epollfd,int fd)
-{
-    epoll_event event;
-    event.data.fd=fd;
-    event.events=EPOLLIN|EPOLLET;
-    epoll_ctl(epollfd,EPOLL_CTL_ADD,fd,&event);
-    setnonblocking(fd);
-}
-*/
 
 int main(int argc, char *argv[])
 {
@@ -104,7 +81,7 @@ int main(int argc, char *argv[])
     epoll_event events[MAX_EVENT_NUM];
     int epollfd = epoll_create(5);
     assert(epollfd != -1);
-    addfd(epollfd, listenfd, false);
+    fd_event::add(epollfd, listenfd, false);
     http_conn::h_epollfd = epollfd;
 
     while (true)
@@ -124,7 +101,6 @@ int main(int argc, char *argv[])
                 struct sockaddr_in client_address;
                 socklen_t client_addrlength = sizeof(client_address);
                 int connfd = accept(listenfd, (struct sockaddr *)&client_address, &client_addrlength);
-                // addfd(epollfd,connfd);
                 users[connfd].init(connfd, client_address);
             }
             else if (events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR))

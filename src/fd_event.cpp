@@ -39,23 +39,3 @@ void mod(int epollFd, int fd, int e)
     epoll_ctl(epollFd, EPOLL_CTL_MOD, fd, &event);
 }
 }
-
-int setnonblocking(int fd)
-{
-    return fd_event::setNonBlocking(fd);
-}
-
-void addfd(int epollfd, int fd, bool one_shot)
-{
-    fd_event::add(epollfd, fd, one_shot);
-}
-
-void removefd(int epollfd, int fd)
-{
-    fd_event::remove(epollfd, fd);
-}
-
-void modfd(int epollfd, int fd, int ev)
-{
-    fd_event::mod(epollfd, fd, ev);
-}

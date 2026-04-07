@@ -46,7 +46,7 @@ void http_conn::init(int sockfd, const sockaddr_in &addr, string user, string pw
 {
     h_sockfd = sockfd;
     h_address = addr;
-    addfd(h_epollfd, sockfd, true);
+    fd_event::add(h_epollfd, sockfd, true);
     ++h_user_count;
 
     strcpy(mysql_user, user.c_str());
@@ -88,7 +88,7 @@ void http_conn::close_http_conn(bool real_close)
 {
     if (real_close && h_sockfd != -1)
     {
-        removefd(h_epollfd, h_sockfd);
+        fd_event::remove(h_epollfd, h_sockfd);
         h_sockfd = -1;
         --h_user_count;
     }
@@ -513,7 +513,7 @@ bool http_conn::write()
     int bytes_to_send = h_write_idx + h_file_stat.st_size;
     if (bytes_to_send == 0)
     {
-        modfd(h_epollfd, h_sockfd, EPOLLIN);
+        fd_event::mod(h_epollfd, h_sockfd, EPOLLIN);
         init();
         return true;
     }
@@ -540,7 +540,7 @@ bool http_conn::write()
                     h_iv[0].iov_base = h_write_buf + bytes_have_send;
                     h_iv[0].iov_len -= bytes_have_send;
                 }
-                modfd(h_epollfd, h_sockfd, EPOLLOUT);
+                fd_event::mod(h_epollfd, h_sockfd, EPOLLOUT);
                 return true;
             }
             unmap();
@@ -550,7 +550,7 @@ bool http_conn::write()
         if (bytes_to_send <= 0)
         {
             unmap();
-            modfd(h_epollfd, h_sockfd, EPOLLIN);
+            fd_event::mod(h_epollfd, h_sockfd, EPOLLIN);
             if (h_linger)
             {
                 init();
@@ -567,11 +567,11 @@ void http_conn::process()
     HTTP_CODE read_ret = process_read();
     if (read_ret == NO_REQUEST)
     {
-        modfd(h_epollfd, h_sockfd, EPOLLIN);
+        fd_event::mod(h_epollfd, h_sockfd, EPOLLIN);
         return;
     }
     bool write_ret = process_write(read_ret);
     if (!write_ret)
         close_http_conn();
-    modfd(h_epollfd, h_sockfd, EPOLLOUT);
+    fd_event::mod(h_epollfd, h_sockfd, EPOLLOUT);
 }

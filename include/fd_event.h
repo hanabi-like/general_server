@@ -9,9 +9,4 @@ void remove(int epollFd, int fd);
 void mod(int epollFd, int fd, int event);
 }
 
-int setnonblocking(int fd);
-void addfd(int epollfd, int fd, bool one_shot);
-void removefd(int epollfd, int fd);
-void modfd(int epollfd, int fd, int ev);
-
 #endif
