@@ -23,6 +23,7 @@
 
 #include "locker.h"
 #include "mysql_conn_pool.h"
+#include "http_response.h"
 
 using namespace std;
 
@@ -31,7 +32,6 @@ class http_conn
 public:
     static const int FILE_PATH_LEN = 200;
     static const int READ_BUFFER_SIZE = 2048;
-    static const int WRITE_BUFFER_SIZE = 1024;
 
     enum CHECK_STATE
     {
@@ -98,13 +98,6 @@ private:
 private:
     void unmap();
     bool process_write(HTTP_CODE http_code);
-    bool add_response(const char *format, ...);
-    bool add_status_line(int status, const char *title);
-    bool add_headers(int content_length);
-    bool add_content_length(int content_length);
-    bool add_linger();
-    bool add_blank_line();
-    bool add_content(const char *content);
 
 public:
     static int h_epollfd;
@@ -140,8 +133,7 @@ private:
     struct iovec h_iv[2];
     int h_iv_count;
     // 写
-    char h_write_buf[WRITE_BUFFER_SIZE];
-    int h_write_idx;
+    HttpResponse g_response;
     // 用户账号密码信息
     unordered_map<string, string> h_users;
     char mysql_user[100];
