@@ -15,6 +15,7 @@ if(NOT MYSQL_LIB)
 endif()
 
 file(GLOB SRC_FILES
+    ${PROJECT_SOURCE_DIR}/src/fd_event.cpp
     ${PROJECT_SOURCE_DIR}/src/http_conn.cpp
     ${PROJECT_SOURCE_DIR}/src/mysql_conn_pool.cpp
     ${PROJECT_SOURCE_DIR}/src/server.cpp
