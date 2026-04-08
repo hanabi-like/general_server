@@ -12,10 +12,8 @@
 #include <cstring>
 #include <fcntl.h>
 #include <sys/epoll.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/uio.h>
-#include <sys/mman.h>
 #include <cstdarg>
 #include <unordered_map>
 #include <string>
@@ -23,6 +21,7 @@
 
 #include "locker.h"
 #include "mysql_conn_pool.h"
+#include "file_resource.h"
 #include "http_response.h"
 
 using namespace std;
@@ -30,7 +29,6 @@ using namespace std;
 class http_conn
 {
 public:
-    static const int FILE_PATH_LEN = 200;
     static const int READ_BUFFER_SIZE = 2048;
 
     enum CHECK_STATE
@@ -96,7 +94,6 @@ private:
     HTTP_CODE do_request();
 
 private:
-    void unmap();
     bool process_write(HTTP_CODE http_code);
 
 public:
@@ -126,13 +123,11 @@ private:
     // HTTP请求报文 请求数据信息
     int h_cgi = 0;
     char *h_content;
-    // html信息
-    char h_file_path[FILE_PATH_LEN];
-    char *h_file_buf;
-    struct stat h_file_stat;
+    // 写出片段信息
     struct iovec h_iv[2];
     int h_iv_count;
     // 写
+    FileResource g_fileResource;
     HttpResponse g_response;
     // 用户账号密码信息
     unordered_map<string, string> h_users;
