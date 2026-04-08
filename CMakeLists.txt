@@ -16,6 +16,7 @@ endif()
 
 file(GLOB SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/fd_event.cpp
+    ${PROJECT_SOURCE_DIR}/src/file_resource.cpp
     ${PROJECT_SOURCE_DIR}/src/http_conn.cpp
     ${PROJECT_SOURCE_DIR}/src/http_response.cpp
     ${PROJECT_SOURCE_DIR}/src/mysql_conn_pool.cpp
