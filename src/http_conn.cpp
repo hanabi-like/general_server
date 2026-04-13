@@ -44,24 +44,7 @@ void http_conn::init(int sockfd, const sockaddr_in &addr, string user, string pw
 void http_conn::init()
 {
     conn = NULL;
-
-    h_method = GET;
-    h_url = 0;
-    h_version = 0;
-
-    h_check_state = CHECK_STATE_REQUESTLINE;
-
-    memset(h_read_buf, '\0', READ_BUFFER_SIZE);
-    h_checked_idx = 0;
-    h_read_idx = 0;
-    h_start_idx = 0;
-
-    h_linger = false;
-    h_content_length = 0;
-    h_host = 0;
-
-    h_cgi = 0;
-    h_content = 0;
+    g_requestParser.reset();
 
     g_fileResource.reset();
 
@@ -84,13 +67,17 @@ void http_conn::close_http_conn(bool real_close)
 */
 bool http_conn::read()
 {
-    if (h_read_idx >= READ_BUFFER_SIZE)
+    if (g_requestParser.readIndex() >= HttpRequestParser::READ_BUFFER_SIZE)
         return false;
 
     int ret = 0;
     while (true)
     {
-        ret = recv(h_sockfd, h_read_buf + h_read_idx, READ_BUFFER_SIZE - h_read_idx, 0);
+        ret = recv(
+            h_sockfd,
+            g_requestParser.buffer() + g_requestParser.readIndex(),
+            HttpRequestParser::READ_BUFFER_SIZE - g_requestParser.readIndex(),
+            0);
         if (ret < 0)
         {
             if (errno == EAGAIN || errno == EWOULDBLOCK)
@@ -99,186 +86,34 @@ bool http_conn::read()
         }
         else if (ret == 0)
             return false;
-        h_read_idx += ret;
+        g_requestParser.increaseReadIndex(ret);
     }
     return true;
 }
 
-http_conn::LINE_STATUS http_conn::parse_line()
-{
-    char temp;
-    for (; h_checked_idx < h_read_idx; ++h_checked_idx)
-    {
-        temp = h_read_buf[h_checked_idx];
-        if (temp == '\r')
-        {
-            if ((h_checked_idx + 1) == h_read_idx)
-                return LINE_OPEN;
-            else if (h_read_buf[h_checked_idx + 1] == '\n')
-            {
-                h_read_buf[h_checked_idx++] = '\0';
-                h_read_buf[h_checked_idx++] = '\0';
-                return LINE_OK;
-            }
-            return LINE_BAD;
-        }
-        else if (temp == '\n')
-        {
-            if (h_checked_idx > 1 && h_read_buf[h_checked_idx - 1] == '\r')
-            {
-                h_read_buf[h_checked_idx - 1] == '\0';
-                h_read_buf[h_checked_idx++] == '\0';
-                return LINE_OK;
-            }
-            return LINE_BAD;
-        }
-    }
-    return LINE_OPEN;
-}
-
-http_conn::HTTP_CODE http_conn::parse_requestline(char *text)
-{
-    h_url = strpbrk(text, " \t");
-    if (!h_url)
-        return BAD_REQUEST;
-    *h_url++ = '\0';
-
-    char *method = text;
-    if (strcasecmp(method, "GET") == 0)
-        h_method = GET;
-    else if (strcasecmp(method, "POST") == 0)
-    {
-        h_method = POST;
-        h_cgi = 1;
-    }
-    else
-        return BAD_REQUEST;
-
-    h_url += strspn(h_url, " \t");
-    h_version = strpbrk(h_url, " \t");
-    if (!h_version)
-        return BAD_REQUEST;
-    *h_version++ = '\0';
-    h_version += strspn(h_version, " \t");
-
-    if (strcasecmp(h_version, "HTTP/1.1") != 0)
-        return BAD_REQUEST;
-
-    if (strncasecmp(h_url, "http://", 7) == 0)
-    {
-        h_url += 7;
-        h_url = strchr(h_url, '/');
-    }
-
-    if (!h_url || h_url[0] != '/')
-        return BAD_REQUEST;
-
-    if (strlen(h_url) == 1)
-        strcat(h_url, "home.html");
-
-    h_check_state = CHECK_STATE_HEADER;
-    return NO_REQUEST;
-}
-
-http_conn::HTTP_CODE http_conn::parse_headers(char *text)
-{
-    if (text[0] == '\0')
-    {
-        if (h_content_length != 0)
-        {
-            h_check_state = CHECK_STATE_CONTENT;
-            return NO_REQUEST;
-        }
-        return GET_REQUEST;
-    }
-    else if (strncasecmp(text, "Connection:", 11) == 0)
-    {
-        text += 11;
-        text += strspn(text, " \t");
-        if (strcasecmp(text, "keep-alive") == 0)
-            h_linger = true;
-    }
-    else if (strncasecmp(text, "Content-Length:", 15) == 0)
-    {
-        text += 15;
-        text += strspn(text, " \t");
-        h_content_length = atol(text);
-    }
-    else if (strncasecmp(text, "Host:", 5) == 0)
-    {
-        text += 5;
-        text += strspn(text, " \t");
-        h_host = text;
-    }
-    else
-    {
-        // printf("unknown header: %s\n",text);
-    }
-
-    return NO_REQUEST;
-}
-
-http_conn::HTTP_CODE http_conn::parse_content(char *text)
-{
-    if ((h_content_length + h_checked_idx) <= h_read_idx)
-    {
-        text[h_content_length] = '\0';
-        h_content = text;
-        return GET_REQUEST;
-    }
-    return NO_REQUEST;
-}
-
 http_conn::HTTP_CODE http_conn::process_read()
 {
-    LINE_STATUS line_status = LINE_OK;
-    HTTP_CODE http_code = NO_REQUEST;
-    char *text = 0;
-    while ((h_check_state == CHECK_STATE_CONTENT && line_status == LINE_OK) || (line_status = parse_line()) == LINE_OK)
+    HttpRequestParser::HttpCode httpCode = g_requestParser.process();
+
+    switch (httpCode)
     {
-        text = h_read_buf + h_start_idx;
-        h_start_idx = h_checked_idx;
-        switch (h_check_state)
-        {
-        case CHECK_STATE_REQUESTLINE:
-        {
-            http_code = parse_requestline(text);
-            if (http_code == BAD_REQUEST)
-                return BAD_REQUEST;
-            break;
-        }
-        case CHECK_STATE_HEADER:
-        {
-            http_code = parse_headers(text);
-            if (http_code == BAD_REQUEST)
-                return BAD_REQUEST;
-            else if (http_code == GET_REQUEST)
-                return do_request(); // GET_REQUEST;
-            break;
-        }
-        case CHECK_STATE_CONTENT:
-        {
-            http_code = parse_content(text);
-            if (http_code == GET_REQUEST)
-                return do_request();
-            line_status = LINE_OPEN;
-            break;
-        }
-        default:
-        {
-            return INTERNAL_ERROR;
-        }
-        }
+    case HttpRequestParser::NO_REQUEST:
+        return NO_REQUEST;
+    case HttpRequestParser::BAD_REQUEST:
+        return BAD_REQUEST;
+    case HttpRequestParser::GET_REQUEST:
+        return do_request();
+    default:
+        return INTERNAL_ERROR;
     }
-    return NO_REQUEST;
 }
 
 http_conn::HTTP_CODE http_conn::do_request()
 {
     const char *targetUrl = g_requestDispatcher.resolve(
-        h_url,
-        h_cgi == 1,
-        h_content,
+        g_requestParser.url(),
+        g_requestParser.cgi(),
+        g_requestParser.content(),
         conn,
         h_users,
         h_lock);
@@ -305,31 +140,31 @@ bool http_conn::process_write(HTTP_CODE http_code)
     {
     case INTERNAL_ERROR:
     {
-        if (!g_response.buildInternalError(h_linger))
+        if (!g_response.buildInternalError(g_requestParser.keepAlive()))
             return false;
         break;
     }
     case BAD_REQUEST:
     {
-        if (!g_response.buildBadRequest(h_linger))
+        if (!g_response.buildBadRequest(g_requestParser.keepAlive()))
             return false;
         break;
     }
     case NO_RESOURCE:
     {
-        if (!g_response.buildNotFound(h_linger))
+        if (!g_response.buildNotFound(g_requestParser.keepAlive()))
             return false;
         break;
     }
     case FORBIDDEN_REQUEST:
     {
-        if (!g_response.buildForbidden(h_linger))
+        if (!g_response.buildForbidden(g_requestParser.keepAlive()))
             return false;
         break;
     }
     case FILE_REQUEST:
     {
-        if (!g_response.buildOkHeader(g_fileResource.size(), h_linger))
+        if (!g_response.buildOkHeader(g_fileResource.size(), g_requestParser.keepAlive()))
             return false;
         if (g_fileResource.size() != 0)
         {
@@ -396,7 +231,7 @@ bool http_conn::write()
         {
             g_fileResource.reset();
             fd_event::mod(h_epollfd, h_sockfd, EPOLLIN);
-            if (h_linger)
+            if (g_requestParser.keepAlive())
             {
                 init();
                 return true;

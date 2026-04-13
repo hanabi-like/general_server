@@ -20,6 +20,7 @@
 #include "mysql_conn_pool.h"
 #include "file_resource.h"
 #include "http_request_dispatcher.h"
+#include "http_request_parser.h"
 #include "http_response.h"
 
 using namespace std;
@@ -27,22 +28,6 @@ using namespace std;
 class http_conn
 {
 public:
-    static const int READ_BUFFER_SIZE = 2048;
-
-    enum CHECK_STATE
-    {
-        CHECK_STATE_REQUESTLINE = 0,
-        CHECK_STATE_HEADER,
-        CHECK_STATE_CONTENT
-    };
-
-    enum LINE_STATUS
-    {
-        LINE_OK = 0,
-        LINE_BAD,
-        LINE_OPEN
-    };
-
     enum HTTP_CODE
     {
         NO_REQUEST,
@@ -85,10 +70,6 @@ private:
 
 private:
     HTTP_CODE process_read();
-    LINE_STATUS parse_line();
-    HTTP_CODE parse_requestline(char *text);
-    HTTP_CODE parse_headers(char *text);
-    HTTP_CODE parse_content(char *text);
     HTTP_CODE do_request();
 
 private:
@@ -103,30 +84,13 @@ private:
     // 客户端信息
     int h_sockfd;
     sockaddr_in h_address;
-    // HTTP请求报文 请求行信息
-    METHOD h_method;
-    char *h_url;
-    char *h_version;
-    // 主状态机状态
-    CHECK_STATE h_check_state;
-    // 读
-    char h_read_buf[READ_BUFFER_SIZE];
-    int h_checked_idx;
-    int h_read_idx;
-    int h_start_idx;
-    // HTTP请求报文 请求头部信息
-    bool h_linger;
-    int h_content_length;
-    char *h_host;
-    // HTTP请求报文 请求数据信息
-    int h_cgi = 0;
-    char *h_content;
     // 写出片段信息
     struct iovec h_iv[2];
     int h_iv_count;
     // 写
     FileResource g_fileResource;
     HttpRequestDispatcher g_requestDispatcher;
+    HttpRequestParser g_requestParser;
     HttpResponse g_response;
     // 用户账号密码信息
     static unordered_map<string, string> h_users;
