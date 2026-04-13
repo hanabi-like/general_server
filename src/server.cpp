@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
     int epollfd = epoll_create(5);
     assert(epollfd != -1);
     fd_event::add(epollfd, listenfd, false);
-    http_conn::h_epollfd = epollfd;
+    http_conn::setEpollFd(epollfd);
 
     while (true)
     {

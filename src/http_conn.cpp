@@ -1,6 +1,15 @@
 #include "fd_event.h"
 #include "http_conn.h"
 
+#include <cerrno>
+#include <cstring>
+#include <iostream>
+#include <netinet/in.h>
+#include <string>
+#include <sys/epoll.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
+
 void http_conn::init_mysql(mysql_conn_pool *connPool)
 {
     MYSQL *conn = NULL;
@@ -23,16 +32,26 @@ void http_conn::init_mysql(mysql_conn_pool *connPool)
     }
 }
 
-int http_conn::h_user_count = 0;
-int http_conn::h_epollfd = -1;
+int http_conn::g_userCount = 0;
+int http_conn::g_epollFd = -1;
 unordered_map<string, string> http_conn::h_users;
+
+void http_conn::setEpollFd(int epollFd)
+{
+    g_epollFd = epollFd;
+}
+
+int http_conn::userCount()
+{
+    return g_userCount;
+}
 
 void http_conn::init(int sockfd, const sockaddr_in &addr, string user, string pwd, string dbname)
 {
-    h_sockfd = sockfd;
-    h_address = addr;
-    fd_event::add(h_epollfd, sockfd, true);
-    ++h_user_count;
+    g_sockFd = sockfd;
+    g_address = addr;
+    fd_event::add(g_epollFd, sockfd, true);
+    ++g_userCount;
 
     strcpy(mysql_user, user.c_str());
     strcpy(mysql_password, pwd.c_str());
@@ -53,11 +72,11 @@ void http_conn::init()
 
 void http_conn::close_http_conn(bool real_close)
 {
-    if (real_close && h_sockfd != -1)
+    if (real_close && g_sockFd != -1)
     {
-        fd_event::remove(h_epollfd, h_sockfd);
-        h_sockfd = -1;
-        --h_user_count;
+        fd_event::remove(g_epollFd, g_sockFd);
+        g_sockFd = -1;
+        --g_userCount;
     }
 }
 
@@ -74,7 +93,7 @@ bool http_conn::read()
     while (true)
     {
         ret = recv(
-            h_sockfd,
+            g_sockFd,
             g_requestParser.buffer() + g_requestParser.readIndex(),
             HttpRequestParser::READ_BUFFER_SIZE - g_requestParser.readIndex(),
             0);
@@ -116,7 +135,7 @@ http_conn::HTTP_CODE http_conn::do_request()
         g_requestParser.content(),
         conn,
         h_users,
-        h_lock);
+        g_lock);
 
     FileResource::Result result = g_fileResource.load(targetUrl);
     switch (result)
@@ -168,20 +187,20 @@ bool http_conn::process_write(HTTP_CODE http_code)
             return false;
         if (g_fileResource.size() != 0)
         {
-            h_iv[0].iov_base = g_response.buffer();
-            h_iv[0].iov_len = g_response.bufferSize();
-            h_iv[1].iov_base = g_fileResource.data();
-            h_iv[1].iov_len = g_fileResource.size();
-            h_iv_count = 2;
+            g_iov[0].iov_base = g_response.buffer();
+            g_iov[0].iov_len = g_response.bufferSize();
+            g_iov[1].iov_base = g_fileResource.data();
+            g_iov[1].iov_len = g_fileResource.size();
+            g_iovCount = 2;
             return true;
         }
     }
     default:
         return false;
     }
-    h_iv[0].iov_base = g_response.buffer();
-    h_iv[0].iov_len = g_response.bufferSize();
-    h_iv_count = 1;
+    g_iov[0].iov_base = g_response.buffer();
+    g_iov[0].iov_len = g_response.bufferSize();
+    g_iovCount = 1;
     return true;
 }
 
@@ -193,13 +212,13 @@ bool http_conn::write()
     int bytes_to_send = g_response.bufferSize() + g_fileResource.size();
     if (bytes_to_send == 0)
     {
-        fd_event::mod(h_epollfd, h_sockfd, EPOLLIN);
+        fd_event::mod(g_epollFd, g_sockFd, EPOLLIN);
         init();
         return true;
     }
     while (1)
     {
-        temp = writev(h_sockfd, h_iv, h_iv_count);
+        temp = writev(g_sockFd, g_iov, g_iovCount);
         if (temp > 0)
         {
             bytes_have_send += temp;
@@ -209,18 +228,18 @@ bool http_conn::write()
         {
             if (errno == EAGAIN) // 缓冲区已满
             {
-                if (bytes_have_send >= h_iv[0].iov_len)
+                if (bytes_have_send >= g_iov[0].iov_len)
                 {
-                    h_iv[0].iov_len = 0;
-                    h_iv[1].iov_base = g_fileResource.data() + iovec_ptr;
-                    h_iv[1].iov_len = bytes_to_send;
+                    g_iov[0].iov_len = 0;
+                    g_iov[1].iov_base = g_fileResource.data() + iovec_ptr;
+                    g_iov[1].iov_len = bytes_to_send;
                 }
                 else
                 {
-                    h_iv[0].iov_base = g_response.buffer() + bytes_have_send;
-                    h_iv[0].iov_len -= bytes_have_send;
+                    g_iov[0].iov_base = g_response.buffer() + bytes_have_send;
+                    g_iov[0].iov_len -= bytes_have_send;
                 }
-                fd_event::mod(h_epollfd, h_sockfd, EPOLLOUT);
+                fd_event::mod(g_epollFd, g_sockFd, EPOLLOUT);
                 return true;
             }
             g_fileResource.reset();
@@ -230,7 +249,7 @@ bool http_conn::write()
         if (bytes_to_send <= 0)
         {
             g_fileResource.reset();
-            fd_event::mod(h_epollfd, h_sockfd, EPOLLIN);
+            fd_event::mod(g_epollFd, g_sockFd, EPOLLIN);
             if (g_requestParser.keepAlive())
             {
                 init();
@@ -247,11 +266,11 @@ void http_conn::process()
     HTTP_CODE read_ret = process_read();
     if (read_ret == NO_REQUEST)
     {
-        fd_event::mod(h_epollfd, h_sockfd, EPOLLIN);
+        fd_event::mod(g_epollFd, g_sockFd, EPOLLIN);
         return;
     }
     bool write_ret = process_write(read_ret);
     if (!write_ret)
         close_http_conn();
-    fd_event::mod(h_epollfd, h_sockfd, EPOLLOUT);
+    fd_event::mod(g_epollFd, g_sockFd, EPOLLOUT);
 }

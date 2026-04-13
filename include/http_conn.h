@@ -1,17 +1,7 @@
 #ifndef HTTP_CONN_H
 #define HTTP_CONN_H
 
-#include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
-#include <cassert>
-#include <cstdio>
-#include <unistd.h>
-#include <cerrno>
-#include <cstring>
-#include <fcntl.h>
-#include <sys/epoll.h>
-#include <sys/types.h>
 #include <sys/uio.h>
 #include <unordered_map>
 #include <string>
@@ -22,8 +12,6 @@
 #include "http_request_dispatcher.h"
 #include "http_request_parser.h"
 #include "http_response.h"
-
-using namespace std;
 
 class http_conn
 {
@@ -40,65 +28,59 @@ public:
         FILE_REQUEST
     };
 
-    enum METHOD
-    {
-        GET = 0,
-        POST,
-        HEAD,
-        PUT,
-        DELETE,
-        TRACE,
-        OPTIONS,
-        CONNECT,
-        PATCH
-    };
-
 public:
     http_conn() {}
     ~http_conn() {}
 
 public:
-    void init(int sockfd, const sockaddr_in &addr, string user = "user", string pwd = "180427", string dbname = "general_server");
+    // Connection lifecycle
+    void init(int sockfd, const sockaddr_in &addr, std::string user = "user", std::string pwd = "180427", std::string dbname = "general_server");
     void close_http_conn(bool real_close = true);
     void process();
     bool read();
     bool write();
     void init_mysql(mysql_conn_pool *connPool);
 
-private:
-    void init();
-
-private:
-    HTTP_CODE process_read();
-    HTTP_CODE do_request();
-
-private:
-    bool process_write(HTTP_CODE http_code);
+public:
+    // Shared connection state
+    static void setEpollFd(int epollFd);
+    static int userCount();
 
 public:
-    static int h_epollfd;
-    static int h_user_count;
+    // Threadpool-visible database handle
     MYSQL *conn;
 
 private:
-    // 客户端信息
-    int h_sockfd;
-    sockaddr_in h_address;
-    // 写出片段信息
-    struct iovec h_iv[2];
-    int h_iv_count;
-    // 写
+    void init();
+    HTTP_CODE process_read();
+    HTTP_CODE do_request();
+    bool process_write(HTTP_CODE http_code);
+
+private:
+    static int g_epollFd;
+    static int g_userCount;
+
+private:
+    // Connection state
+    int g_sockFd;
+    sockaddr_in g_address;
+
+    // Send state
+    struct iovec g_iov[2];
+    int g_iovCount;
+
+    // Coordinated subsystems
     FileResource g_fileResource;
     HttpRequestDispatcher g_requestDispatcher;
     HttpRequestParser g_requestParser;
     HttpResponse g_response;
-    // 用户账号密码信息
-    static unordered_map<string, string> h_users;
+
+    // Shared auth/cache state
+    static std::unordered_map<std::string, std::string> h_users;
     char mysql_user[100];
     char mysql_password[100];
     char mysql_dbname[100];
-    // 数据库
-    locker h_lock;
+    locker g_lock;
 };
 
 #endif
