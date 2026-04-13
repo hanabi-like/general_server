@@ -129,7 +129,7 @@ private:
     HttpRequestDispatcher g_requestDispatcher;
     HttpResponse g_response;
     // 用户账号密码信息
-    unordered_map<string, string> h_users;
+    static unordered_map<string, string> h_users;
     char mysql_user[100];
     char mysql_password[100];
     char mysql_dbname[100];

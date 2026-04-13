@@ -25,6 +25,7 @@ void http_conn::init_mysql(mysql_conn_pool *connPool)
 
 int http_conn::h_user_count = 0;
 int http_conn::h_epollfd = -1;
+unordered_map<string, string> http_conn::h_users;
 
 void http_conn::init(int sockfd, const sockaddr_in &addr, string user, string pwd, string dbname)
 {
