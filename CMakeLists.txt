@@ -22,6 +22,7 @@ file(GLOB SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/page_request_handler.cpp
     ${PROJECT_SOURCE_DIR}/src/auth_request_handler.cpp
     ${PROJECT_SOURCE_DIR}/src/http_request_dispatcher.cpp
+    ${PROJECT_SOURCE_DIR}/src/http_request_parser.cpp
     ${PROJECT_SOURCE_DIR}/src/mysql_conn_pool.cpp
     ${PROJECT_SOURCE_DIR}/src/server.cpp
 )
