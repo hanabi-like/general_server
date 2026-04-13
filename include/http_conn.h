@@ -6,7 +6,6 @@
 #include <arpa/inet.h>
 #include <cassert>
 #include <cstdio>
-#include <cstdlib>
 #include <unistd.h>
 #include <cerrno>
 #include <cstring>
@@ -14,14 +13,13 @@
 #include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/uio.h>
-#include <cstdarg>
 #include <unordered_map>
 #include <string>
-#include <iostream>
 
 #include "locker.h"
 #include "mysql_conn_pool.h"
 #include "file_resource.h"
+#include "http_request_dispatcher.h"
 #include "http_response.h"
 
 using namespace std;
@@ -128,6 +126,7 @@ private:
     int h_iv_count;
     // 写
     FileResource g_fileResource;
+    HttpRequestDispatcher g_requestDispatcher;
     HttpResponse g_response;
     // 用户账号密码信息
     unordered_map<string, string> h_users;

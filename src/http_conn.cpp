@@ -274,75 +274,13 @@ http_conn::HTTP_CODE http_conn::process_read()
 
 http_conn::HTTP_CODE http_conn::do_request()
 {
-    const char *p = strrchr(h_url, '/');
-
-    if (h_cgi == 1 && (*(p + 1) == '2' || *(p + 1) == '3'))
-    {
-        /*
-        0 注册
-        1 登录
-        2 注册检测
-        3 登录检测
-        */
-        char flag = *(p + 1);
-
-        // char* h_content="user=xxx&password=xxx";
-        char name[100], password[100];
-        int idx;
-        int i = 0;
-        for (idx = 5; h_content[idx] != '&'; ++idx, ++i)
-            name[i] = h_content[idx];
-        name[i] = '\0';
-
-        int j = 0;
-        for (idx = idx + 10; h_content[idx] != '\0'; ++idx, ++j)
-            password[j] = h_content[idx];
-        password[j] = '\0';
-
-        if (flag == '2')
-        {
-            char *mysql_insert_query = (char *)malloc(sizeof(char) * 200);
-            strcpy(mysql_insert_query, "INSERT INTO user(username,password) VALUES(");
-            strcat(mysql_insert_query, "'");
-            strcat(mysql_insert_query, name);
-            strcat(mysql_insert_query, "','");
-            strcat(mysql_insert_query, password);
-            strcat(mysql_insert_query, "')");
-            if (h_users.find(name) == h_users.end())
-            {
-                h_lock.lock();
-                int res = mysql_query(conn, mysql_insert_query);
-                h_users[name] = password;
-                h_lock.unlock();
-                if (!res)
-                    strcpy(h_url, "/regOK.html");
-                else
-                    strcpy(h_url, "/regErr.html");
-                /*
-                cout<<"current users account info:"<<endl;
-                for(auto& m:h_users)
-                {
-                    cout<<"name:"<<m.first<<" password:"<<m.second<<endl;
-                }
-                */
-            }
-            else
-                strcpy(h_url, "/regErr.html");
-        }
-        else if (flag == '3')
-        {
-            if (h_users.find(name) != h_users.end() && h_users[name] == password)
-                strcpy(h_url, "/logOK.html");
-            else
-                strcpy(h_url, "/logErr.html");
-        }
-    }
-
-    const char *targetUrl = h_url;
-    if (*(p + 1) == '0')
-        targetUrl = "/reg.html";
-    else if (*(p + 1) == '1')
-        targetUrl = "/log.html";
+    const char *targetUrl = g_requestDispatcher.resolve(
+        h_url,
+        h_cgi == 1,
+        h_content,
+        conn,
+        h_users,
+        h_lock);
 
     FileResource::Result result = g_fileResource.load(targetUrl);
     switch (result)
