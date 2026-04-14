@@ -42,8 +42,8 @@ public:
 
 public:
     // Shared connection state
-    static bool initUserRepository(mysql_conn_pool *connPool);
     static void setEpollFd(int epollFd);
+    static bool initUserRepository(mysql_conn_pool *connPool);
     static int userCount();
 
 public:
@@ -58,6 +58,7 @@ private:
 
 private:
     static int g_epollFd;
+    static UserRepository g_userRepository;
     static int g_userCount;
 
 private:
@@ -70,11 +71,10 @@ private:
     int g_iovCount;
 
     // Coordinated subsystems
-    FileResource g_fileResource;
-    HttpRequestDispatcher g_requestDispatcher;
     HttpRequestParser g_requestParser;
+    HttpRequestDispatcher g_requestDispatcher;
+    FileResource g_fileResource;
     HttpResponse g_response;
-    static UserRepository g_userRepository;
 };
 
 #endif
