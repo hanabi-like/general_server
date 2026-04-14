@@ -33,11 +33,11 @@ public:
 
 public:
     // Connection lifecycle
-    void init(int sockfd, const sockaddr_in &addr, std::string user = "user", std::string pwd = "180427", std::string dbname = "general_server");
-    void close_http_conn(bool real_close = true);
-    void process();
+    void init(int sockFd, const sockaddr_in &addr, std::string user = "user", std::string password = "180427", std::string dbName = "general_server");
+    void close();
     bool read();
     bool write();
+    void process();
     void init_mysql(mysql_conn_pool *connPool);
 
 public:
@@ -50,7 +50,7 @@ public:
     MYSQL *conn;
 
 private:
-    void init();
+    void reset();
     ProcessResult process_read();
     ProcessResult do_request();
     bool process_write(ProcessResult processResult);

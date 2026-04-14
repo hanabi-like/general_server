@@ -104,18 +104,18 @@ int main(int argc, char *argv[])
                 users[connfd].init(connfd, client_address);
             }
             else if (events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR))
-                users[sockfd].close_http_conn();
+                users[sockfd].close();
             else if (events[i].events & EPOLLIN)
             {
                 if (users[sockfd].read())
                     pool->append(users + sockfd);
                 else
-                    users[sockfd].close_http_conn();
+                    users[sockfd].close();
             }
             else if (events[i].events & EPOLLOUT)
             {
                 if (!users[sockfd].write())
-                    users[sockfd].close_http_conn();
+                    users[sockfd].close();
             }
             else
             {

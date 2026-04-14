@@ -46,21 +46,21 @@ int HttpConn::userCount()
     return g_userCount;
 }
 
-void HttpConn::init(int sockfd, const sockaddr_in &addr, string user, string pwd, string dbname)
+void HttpConn::init(int sockFd, const sockaddr_in &addr, string user, string password, string dbName)
 {
-    g_sockFd = sockfd;
+    g_sockFd = sockFd;
     g_address = addr;
-    fd_event::add(g_epollFd, sockfd, true);
+    fd_event::add(g_epollFd, sockFd, true);
     ++g_userCount;
 
     strcpy(mysql_user, user.c_str());
-    strcpy(mysql_password, pwd.c_str());
-    strcpy(mysql_dbname, dbname.c_str());
+    strcpy(mysql_password, password.c_str());
+    strcpy(mysql_dbname, dbName.c_str());
 
-    init();
+    reset();
 }
 
-void HttpConn::init()
+void HttpConn::reset()
 {
     conn = NULL;
     g_requestParser.reset();
@@ -70,9 +70,9 @@ void HttpConn::init()
     g_response.init();
 }
 
-void HttpConn::close_http_conn(bool real_close)
+void HttpConn::close()
 {
-    if (real_close && g_sockFd != -1)
+    if (g_sockFd != -1)
     {
         fd_event::remove(g_epollFd, g_sockFd);
         g_sockFd = -1;
@@ -213,7 +213,7 @@ bool HttpConn::write()
     if (bytes_to_send == 0)
     {
         fd_event::mod(g_epollFd, g_sockFd, EPOLLIN);
-        init();
+        reset();
         return true;
     }
     while (1)
@@ -252,7 +252,7 @@ bool HttpConn::write()
             fd_event::mod(g_epollFd, g_sockFd, EPOLLIN);
             if (g_requestParser.keepAlive())
             {
-                init();
+                reset();
                 return true;
             }
             else
@@ -273,6 +273,9 @@ void HttpConn::process()
         read_ret = do_request();
     bool write_ret = process_write(read_ret);
     if (!write_ret)
-        close_http_conn();
+    {
+        close();
+        return;
+    }
     fd_event::mod(g_epollFd, g_sockFd, EPOLLOUT);
 }
