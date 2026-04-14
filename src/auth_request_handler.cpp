@@ -7,8 +7,7 @@ const char *AuthRequestHandler::resolve(
     const char *url,
     const char *content,
     MYSQL *conn,
-    std::unordered_map<std::string, std::string> &users,
-    locker &lock)
+    UserRepository &userRepository)
 {
     const char *p = std::strrchr(url, '/');
     if (!p || *(p + 1) == '\0')
@@ -20,24 +19,14 @@ const char *AuthRequestHandler::resolve(
 
     if (*(p + 1) == '2')
     {
-        std::string mysqlInsertQuery = "INSERT INTO user(username, password) VALUES('" + username + "', '" + password + "')";
-
-        if (users.find(username) == users.end())
-        {
-            lock.lock();
-            int ret = mysql_query(conn, mysqlInsertQuery.c_str());
-            if (!ret)
-                users[username] = password;
-            lock.unlock();
-            if (!ret)
-                return "/regOk.html";
-        }
+        if (userRepository.create(username, password, conn))
+            return "/regOk.html";
         return "/regError.html";
     }
 
     if (*(p + 1) == '3')
     {
-        if (users.find(username) != users.end() && users[username] == password)
+        if (userRepository.verify(username, password))
             return "/loginOk.html";
         return "/loginError.html";
     }

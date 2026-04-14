@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    users->init_mysql(connPool);
+    HttpConn::initUserRepository(connPool);
     // int user_count=0;
 
     int ret = 0;

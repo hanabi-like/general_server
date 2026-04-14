@@ -12,6 +12,7 @@
 #include "http_request_dispatcher.h"
 #include "http_request_parser.h"
 #include "http_response.h"
+#include "user_repository.h"
 
 class HttpConn
 {
@@ -38,10 +39,10 @@ public:
     bool read();
     bool write();
     void process();
-    void init_mysql(mysql_conn_pool *connPool);
 
 public:
     // Shared connection state
+    static bool initUserRepository(mysql_conn_pool *connPool);
     static void setEpollFd(int epollFd);
     static int userCount();
 
@@ -73,13 +74,7 @@ private:
     HttpRequestDispatcher g_requestDispatcher;
     HttpRequestParser g_requestParser;
     HttpResponse g_response;
-
-    // Shared auth/cache state
-    static std::unordered_map<std::string, std::string> h_users;
-    char mysql_user[100];
-    char mysql_password[100];
-    char mysql_dbname[100];
-    locker g_lock;
+    static UserRepository g_userRepository;
 };
 
 #endif

@@ -10,31 +10,14 @@
 #include <sys/socket.h>
 #include <sys/uio.h>
 
-void HttpConn::init_mysql(mysql_conn_pool *connPool)
-{
-    MYSQL *conn = NULL;
-    connRAII mysqlConn(&conn, connPool);
-
-    if (mysql_query(conn, "SELECT username,password FROM user"))
-        cout << "SELECT error" << endl;
-
-    MYSQL_RES *res = mysql_store_result(conn);
-
-    int num_fields = mysql_num_fields(res);
-
-    MYSQL_FIELD *fields = mysql_fetch_fields(res);
-
-    while (MYSQL_ROW row = mysql_fetch_row(res))
-    {
-        string t1(row[0]);
-        string t2(row[1]);
-        h_users[t1] = t2;
-    }
-}
-
 int HttpConn::g_userCount = 0;
 int HttpConn::g_epollFd = -1;
-unordered_map<string, string> HttpConn::h_users;
+UserRepository HttpConn::g_userRepository;
+
+bool HttpConn::initUserRepository(mysql_conn_pool *connPool)
+{
+    return g_userRepository.init(connPool);
+}
 
 void HttpConn::setEpollFd(int epollFd)
 {
@@ -52,10 +35,6 @@ void HttpConn::init(int sockFd, const sockaddr_in &addr, string user, string pas
     g_address = addr;
     fd_event::add(g_epollFd, sockFd, true);
     ++g_userCount;
-
-    strcpy(mysql_user, user.c_str());
-    strcpy(mysql_password, password.c_str());
-    strcpy(mysql_dbname, dbName.c_str());
 
     reset();
 }
@@ -134,8 +113,7 @@ HttpConn::ProcessResult HttpConn::do_request()
         g_requestParser.cgi(),
         g_requestParser.content(),
         conn,
-        h_users,
-        g_lock);
+        g_userRepository);
 
     FileResource::Result result = g_fileResource.load(targetUrl);
     switch (result)
