@@ -20,10 +20,10 @@ public:
         LINE_OPEN
     };
 
-    enum HttpCode
+    enum ParseResult
     {
         NO_REQUEST = 0,
-        GET_REQUEST,
+        REQUEST_READY,
         BAD_REQUEST,
         INTERNAL_ERROR
     };
@@ -50,7 +50,7 @@ public:
     int readIndex() const;
     void increaseReadIndex(int bytes);
 
-    HttpCode process();
+    ParseResult process();
 
     Method method() const;
     char *url() const;
@@ -63,9 +63,9 @@ public:
 
 private:
     LineStatus parseLine();
-    HttpCode parseRequestLine(char *text);
-    HttpCode parseRequestHeaders(char *text);
-    HttpCode parseRequestBody(char *text);
+    ParseResult parseRequestLine(char *text);
+    ParseResult parseRequestHeaders(char *text);
+    ParseResult parseRequestBody(char *text);
 
 private:
     // request line

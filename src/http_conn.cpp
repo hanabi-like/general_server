@@ -112,15 +112,15 @@ bool HttpConn::read()
 
 HttpConn::ProcessResult HttpConn::process_read()
 {
-    HttpRequestParser::HttpCode httpCode = g_requestParser.process();
+    HttpRequestParser::ParseResult parseResult = g_requestParser.process();
 
-    switch (httpCode)
+    switch (parseResult)
     {
     case HttpRequestParser::NO_REQUEST:
         return NO_REQUEST;
     case HttpRequestParser::BAD_REQUEST:
         return BAD_REQUEST;
-    case HttpRequestParser::GET_REQUEST:
+    case HttpRequestParser::REQUEST_READY:
         return REQUEST_READY;
     default:
         return INTERNAL_ERROR;

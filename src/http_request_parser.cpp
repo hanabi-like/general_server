@@ -46,10 +46,10 @@ void HttpRequestParser::increaseReadIndex(int bytes)
     g_readIdx += bytes;
 }
 
-HttpRequestParser::HttpCode HttpRequestParser::process()
+HttpRequestParser::ParseResult HttpRequestParser::process()
 {
     LineStatus lineStatus = LINE_OK;
-    HttpCode httpCode = NO_REQUEST;
+    ParseResult parseResult = NO_REQUEST;
     char *text = 0;
 
     while ((g_checkStatus == CHECK_STATE_REQUEST_BODY && lineStatus == LINE_OK) || ((lineStatus = parseLine()) == LINE_OK))
@@ -60,25 +60,25 @@ HttpRequestParser::HttpCode HttpRequestParser::process()
         {
         case CHECK_STATE_REQUEST_LINE:
         {
-            httpCode = parseRequestLine(text);
-            if (httpCode == BAD_REQUEST)
+            parseResult = parseRequestLine(text);
+            if (parseResult == BAD_REQUEST)
                 return BAD_REQUEST;
             break;
         }
         case CHECK_STATE_REQUEST_HEADERS:
         {
-            httpCode = parseRequestHeaders(text);
-            if (httpCode == BAD_REQUEST)
+            parseResult = parseRequestHeaders(text);
+            if (parseResult == BAD_REQUEST)
                 return BAD_REQUEST;
-            else if (httpCode == GET_REQUEST)
-                return GET_REQUEST;
+            else if (parseResult == REQUEST_READY)
+                return REQUEST_READY;
             break;
         }
         case CHECK_STATE_REQUEST_BODY:
         {
-            httpCode = parseRequestBody(text);
-            if (httpCode == GET_REQUEST)
-                return GET_REQUEST;
+            parseResult = parseRequestBody(text);
+            if (parseResult == REQUEST_READY)
+                return REQUEST_READY;
             lineStatus = LINE_OPEN;
             break;
         }
@@ -122,7 +122,7 @@ HttpRequestParser::LineStatus HttpRequestParser::parseLine()
     return LINE_OPEN;
 }
 
-HttpRequestParser::HttpCode
+HttpRequestParser::ParseResult
 HttpRequestParser::parseRequestLine(char *text)
 {
     g_url = strpbrk(text, " \t");
@@ -167,7 +167,7 @@ HttpRequestParser::parseRequestLine(char *text)
     return NO_REQUEST;
 }
 
-HttpRequestParser::HttpCode HttpRequestParser::parseRequestHeaders(char
+HttpRequestParser::ParseResult HttpRequestParser::parseRequestHeaders(char
                                                                        *text)
 {
     if (text[0] == '\0')
@@ -177,7 +177,7 @@ HttpRequestParser::HttpCode HttpRequestParser::parseRequestHeaders(char
             g_checkStatus = CHECK_STATE_REQUEST_BODY;
             return NO_REQUEST;
         }
-        return GET_REQUEST;
+        return REQUEST_READY;
     }
     else if (strncasecmp(text, "Host:", 5) == 0)
     {
@@ -202,14 +202,14 @@ HttpRequestParser::HttpCode HttpRequestParser::parseRequestHeaders(char
     return NO_REQUEST;
 }
 
-HttpRequestParser::HttpCode HttpRequestParser::parseRequestBody(char
+HttpRequestParser::ParseResult HttpRequestParser::parseRequestBody(char
                                                                     *text)
 {
     if ((g_contentLength + g_checkedIdx) <= g_readIdx)
     {
         text[g_contentLength] = '\0';
         g_content = text;
-        return GET_REQUEST;
+        return REQUEST_READY;
     }
     return NO_REQUEST;
 }
