@@ -19,8 +19,7 @@
 // 本地项目头文件
 #include "config.h"
 #include "fd_event.h"
-#include "locker.h"
-#include "threadpool.h"
+#include "thread_pool.h"
 #include "http_conn.h"
 #include "mysql_conn_pool.h"
 
@@ -49,10 +48,10 @@ int main(int argc, char *argv[])
     mysql_conn_pool *connPool = mysql_conn_pool::getInstance();
     connPool->init();
 
-    threadpool<HttpConn> *pool = NULL;
+    ThreadPool<HttpConn> *pool = NULL;
     try
     {
-        pool = new threadpool<HttpConn>(connPool);
+        pool = new ThreadPool<HttpConn>(connPool);
     }
     catch (...)
     {

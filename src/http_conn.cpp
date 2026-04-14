@@ -41,7 +41,6 @@ void HttpConn::init(int sockFd, const sockaddr_in &addr, string user, string pas
 
 void HttpConn::reset()
 {
-    conn = NULL;
     g_requestParser.reset();
 
     g_fileResource.reset();
@@ -106,7 +105,7 @@ HttpConn::ProcessResult HttpConn::process_read()
     }
 }
 
-HttpConn::ProcessResult HttpConn::do_request()
+HttpConn::ProcessResult HttpConn::do_request(MYSQL *conn)
 {
     const char *targetUrl = g_requestDispatcher.resolve(
         g_requestParser.url(),
@@ -239,7 +238,7 @@ bool HttpConn::write()
     }
 }
 
-void HttpConn::process()
+void HttpConn::process(MYSQL *conn)
 {
     ProcessResult read_ret = process_read();
     if (read_ret == NO_REQUEST)
@@ -248,7 +247,7 @@ void HttpConn::process()
         return;
     }
     if (read_ret == REQUEST_READY)
-        read_ret = do_request();
+        read_ret = do_request(conn);
     bool write_ret = process_write(read_ret);
     if (!write_ret)
     {

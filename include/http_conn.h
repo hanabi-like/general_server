@@ -6,7 +6,6 @@
 #include <unordered_map>
 #include <string>
 
-#include "locker.h"
 #include "mysql_conn_pool.h"
 #include "file_resource.h"
 #include "http_request_dispatcher.h"
@@ -38,7 +37,7 @@ public:
     void close();
     bool read();
     bool write();
-    void process();
+    void process(MYSQL *conn);
 
 public:
     // Shared connection state
@@ -46,14 +45,10 @@ public:
     static bool initUserRepository(mysql_conn_pool *connPool);
     static int userCount();
 
-public:
-    // Threadpool-visible database handle
-    MYSQL *conn;
-
 private:
     void reset();
     ProcessResult process_read();
-    ProcessResult do_request();
+    ProcessResult do_request(MYSQL *conn);
     bool process_write(ProcessResult processResult);
 
 private:
