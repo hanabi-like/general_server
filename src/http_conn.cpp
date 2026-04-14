@@ -110,7 +110,7 @@ bool HttpConn::read()
     return true;
 }
 
-HttpConn::HTTP_CODE HttpConn::process_read()
+HttpConn::ProcessResult HttpConn::process_read()
 {
     HttpRequestParser::HttpCode httpCode = g_requestParser.process();
 
@@ -121,13 +121,13 @@ HttpConn::HTTP_CODE HttpConn::process_read()
     case HttpRequestParser::BAD_REQUEST:
         return BAD_REQUEST;
     case HttpRequestParser::GET_REQUEST:
-        return do_request();
+        return REQUEST_READY;
     default:
         return INTERNAL_ERROR;
     }
 }
 
-HttpConn::HTTP_CODE HttpConn::do_request()
+HttpConn::ProcessResult HttpConn::do_request()
 {
     const char *targetUrl = g_requestDispatcher.resolve(
         g_requestParser.url(),
@@ -141,7 +141,7 @@ HttpConn::HTTP_CODE HttpConn::do_request()
     switch (result)
     {
     case FileResource::OK:
-        return FILE_REQUEST;
+        return FILE_READY;
     case FileResource::BAD_REQUEST:
         return BAD_REQUEST;
     case FileResource::FORBIDDEN:
@@ -153,9 +153,9 @@ HttpConn::HTTP_CODE HttpConn::do_request()
     }
 }
 
-bool HttpConn::process_write(HTTP_CODE http_code)
+bool HttpConn::process_write(ProcessResult processResult)
 {
-    switch (http_code)
+    switch (processResult)
     {
     case INTERNAL_ERROR:
     {
@@ -181,7 +181,7 @@ bool HttpConn::process_write(HTTP_CODE http_code)
             return false;
         break;
     }
-    case FILE_REQUEST:
+    case FILE_READY:
     {
         if (!g_response.buildOkHeader(g_fileResource.size(), g_requestParser.keepAlive()))
             return false;
@@ -263,12 +263,14 @@ bool HttpConn::write()
 
 void HttpConn::process()
 {
-    HTTP_CODE read_ret = process_read();
+    ProcessResult read_ret = process_read();
     if (read_ret == NO_REQUEST)
     {
         fd_event::mod(g_epollFd, g_sockFd, EPOLLIN);
         return;
     }
+    if (read_ret == REQUEST_READY)
+        read_ret = do_request();
     bool write_ret = process_write(read_ret);
     if (!write_ret)
         close_http_conn();

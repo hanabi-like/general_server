@@ -16,16 +16,15 @@
 class HttpConn
 {
 public:
-    enum HTTP_CODE
+    enum ProcessResult
     {
         NO_REQUEST,
-        GET_REQUEST,
+        REQUEST_READY,
+        FILE_READY,
         BAD_REQUEST,
         FORBIDDEN_REQUEST,
-        INTERNAL_ERROR,
-        CLOSED_CONNECTION,
         NO_RESOURCE,
-        FILE_REQUEST
+        INTERNAL_ERROR
     };
 
 public:
@@ -52,9 +51,9 @@ public:
 
 private:
     void init();
-    HTTP_CODE process_read();
-    HTTP_CODE do_request();
-    bool process_write(HTTP_CODE http_code);
+    ProcessResult process_read();
+    ProcessResult do_request();
+    bool process_write(ProcessResult processResult);
 
 private:
     static int g_epollFd;
