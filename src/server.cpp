@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     HttpConn *users = new HttpConn[MAX_FD_NUM];
     assert(users);
 
-    mysql_conn_pool *connPool = mysql_conn_pool::getInstance();
+    MysqlConnPool *connPool = MysqlConnPool::getInstance();
     connPool->init();
 
     ThreadPool<HttpConn> *pool = NULL;

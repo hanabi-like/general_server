@@ -1,9 +1,9 @@
 #include "user_repository.h"
 
-bool UserRepository::init(mysql_conn_pool *connPool)
+bool UserRepository::init(MysqlConnPool *connPool)
 {
     MYSQL *conn = nullptr;
-    connRAII curConn(&conn, connPool);
+    MysqlConnGuard connGuard(&conn, connPool);
 
     if (mysql_query(conn, "SELECT username,password FROM user"))
         return false;

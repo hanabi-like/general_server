@@ -21,18 +21,18 @@ public:
     ~FileResource();
 
     void reset();
-    Result load(const char* url);
+    Result load(const char *url);
 
-    char* data() const;
+    char *data() const;
     int size() const;
-    const char* path() const;
+    const char *path() const;
 
 private:
     void unmap();
 
 private:
     char g_filePath[FILE_PATH_LEN];
-    char* g_fileBuf;
+    char *g_fileBuf;
     struct stat g_fileStat;
 };
 

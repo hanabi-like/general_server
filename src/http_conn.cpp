@@ -14,7 +14,7 @@ int HttpConn::g_userCount = 0;
 int HttpConn::g_epollFd = -1;
 UserRepository HttpConn::g_userRepository;
 
-bool HttpConn::initUserRepository(mysql_conn_pool *connPool)
+bool HttpConn::initUserRepository(MysqlConnPool *connPool)
 {
     return g_userRepository.init(connPool);
 }
@@ -29,7 +29,7 @@ int HttpConn::userCount()
     return g_userCount;
 }
 
-void HttpConn::init(int sockFd, const sockaddr_in &addr, string user, string password, string dbName)
+void HttpConn::init(int sockFd, const sockaddr_in &addr, std::string user, std::string password, std::string dbName)
 {
     g_sockFd = sockFd;
     g_address = addr;

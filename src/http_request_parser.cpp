@@ -168,7 +168,7 @@ HttpRequestParser::parseRequestLine(char *text)
 }
 
 HttpRequestParser::ParseResult HttpRequestParser::parseRequestHeaders(char
-                                                                       *text)
+                                                                          *text)
 {
     if (text[0] == '\0')
     {
@@ -203,7 +203,7 @@ HttpRequestParser::ParseResult HttpRequestParser::parseRequestHeaders(char
 }
 
 HttpRequestParser::ParseResult HttpRequestParser::parseRequestBody(char
-                                                                    *text)
+                                                                       *text)
 {
     if ((g_contentLength + g_checkedIdx) <= g_readIdx)
     {

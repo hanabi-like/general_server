@@ -6,19 +6,19 @@
 
 namespace
 {
-const char *OK_200_TITLE = "OK";
+    const char *OK_200_TITLE = "OK";
 
-const char *ERROR_400_TITLE = "Bad Request";
-const char *ERROR_400_FORM = "Your request has bad syntax or is inherently impossible to satisfy.\n";
+    const char *ERROR_400_TITLE = "Bad Request";
+    const char *ERROR_400_FORM = "Your request has bad syntax or is inherently impossible to satisfy.\n";
 
-const char *ERROR_403_TITLE = "Forbidden";
-const char *ERROR_403_FORM = "You do not have permission to get file from this server.\n";
+    const char *ERROR_403_TITLE = "Forbidden";
+    const char *ERROR_403_FORM = "You do not have permission to get file from this server.\n";
 
-const char *ERROR_404_TITLE = "Not Found";
-const char *ERROR_404_FORM = "The requested file was not found on this server.\n";
+    const char *ERROR_404_TITLE = "Not Found";
+    const char *ERROR_404_FORM = "The requested file was not found on this server.\n";
 
-const char *ERROR_500_TITLE = "Internal Error";
-const char *ERROR_500_FORM = "There was an unusual problem serving the requested file.\n";
+    const char *ERROR_500_TITLE = "Internal Error";
+    const char *ERROR_500_FORM = "There was an unusual problem serving the requested file.\n";
 }
 
 HttpResponse::HttpResponse()
@@ -57,7 +57,7 @@ bool HttpResponse::buildInternalError(bool linger)
     return buildErrorResponse(500, ERROR_500_TITLE, ERROR_500_FORM, linger);
 }
 
-char* HttpResponse::buffer()
+char *HttpResponse::buffer()
 {
     return g_writeBuf;
 }
@@ -67,12 +67,12 @@ int HttpResponse::bufferSize() const
     return g_writeIdx;
 }
 
-bool HttpResponse::buildErrorResponse(int status, const char* title, const char* content, bool linger)
+bool HttpResponse::buildErrorResponse(int status, const char *title, const char *content, bool linger)
 {
     return addStatusLine(status, title) && addHeaders(strlen(content), linger) && addContent(content);
 }
 
-bool HttpResponse::addResponse(const char* format, ...)
+bool HttpResponse::addResponse(const char *format, ...)
 {
     if (g_writeIdx >= WRITE_BUFFER_SIZE)
         return false;
@@ -81,13 +81,13 @@ bool HttpResponse::addResponse(const char* format, ...)
     int len = std::vsnprintf(g_writeBuf + g_writeIdx, WRITE_BUFFER_SIZE - 1 - g_writeIdx, format, argList);
     va_end(argList);
 
-    if(len < 0 || len >= WRITE_BUFFER_SIZE - 1 - g_writeIdx)
+    if (len < 0 || len >= WRITE_BUFFER_SIZE - 1 - g_writeIdx)
         return false;
     g_writeIdx += len;
     return true;
 }
 
-bool HttpResponse::addStatusLine(int status, const char* title)
+bool HttpResponse::addStatusLine(int status, const char *title)
 {
     return addResponse("%s %d %s\r\n", "HTTP/1.1", status, title);
 }
@@ -112,7 +112,7 @@ bool HttpResponse::addBlankLine()
     return addResponse("%s", "\r\n");
 }
 
-bool HttpResponse::addContent(const char* content)
+bool HttpResponse::addContent(const char *content)
 {
     return addResponse("%s", content);
 }

@@ -1,114 +1,99 @@
 #include "mysql_conn_pool.h"
 
-mysql_conn_pool *mysql_conn_pool::getInstance()
+#include <cstdlib>
+
+MysqlConnPool *MysqlConnPool::getInstance()
 {
-    static mysql_conn_pool connPool;
+    static MysqlConnPool connPool;
     return &connPool;
 }
 
-mysql_conn_pool::mysql_conn_pool()
+void MysqlConnPool::destroy()
 {
-    h_curConn = 0;
-    h_freeConn = 0;
+    std::lock_guard<std::mutex> lock(g_mutex);
+
+    for (auto conn : g_connList)
+        mysql_close(conn);
+
+    g_curConn = 0;
+    g_freeConn = 0;
+    g_connList.clear();
 }
 
-mysql_conn_pool::~mysql_conn_pool()
+MysqlConnPool::MysqlConnPool()
+    : g_maxConn(0), g_curConn(0), g_freeConn(0)
 {
-    destroyPool();
 }
 
-void mysql_conn_pool::init(string url, int port, string user, string pwd, string dbName, int mxConn)
+MysqlConnPool::~MysqlConnPool()
 {
-    h_url = url;
-    h_port = port;
-    h_user = user;
-    h_password = pwd;
-    h_databaseName = dbName;
+    destroy();
+}
 
-    for (int i = 0; i < mxConn; ++i)
+void MysqlConnPool::init(std::string url, int port, std::string user, std::string password, std::string dbName, int maxConn)
+{
+    g_url = url;
+    g_port = port;
+    g_user = user;
+    g_password = password;
+    g_dbName = dbName;
+
+    for (int i = 0; i < maxConn; ++i)
     {
-        MYSQL *conn = NULL;
+        MYSQL *conn = nullptr;
         conn = mysql_init(conn);
 
-        if (conn == NULL)
+        if (conn == nullptr)
             exit(1);
-        conn = mysql_real_connect(conn, url.c_str(), user.c_str(), pwd.c_str(), dbName.c_str(), port, NULL, 0);
-        if (conn == NULL)
+        conn = mysql_real_connect(conn, url.c_str(), user.c_str(), password.c_str(), dbName.c_str(), port, nullptr, 0);
+        if (conn == nullptr)
             exit(1);
-        connList.push_back(conn);
-        ++h_freeConn;
+        g_connList.push_back(conn);
+        ++g_freeConn;
     }
 
-    reserve = sem(h_freeConn);
-    h_mxConn = h_freeConn;
+    g_maxConn = maxConn;
 }
 
-MYSQL *mysql_conn_pool::getConn()
+MYSQL *MysqlConnPool::getConn()
 {
-    MYSQL *conn = NULL;
-    if (connList.size() == 0)
-        return NULL;
-    reserve.wait();
-    lock.lock();
+    std::unique_lock<std::mutex> lock(g_mutex);
 
-    conn = connList.front();
-    connList.pop_front();
+    g_condition.wait(lock, [this]
+                     { return !g_connList.empty(); });
 
-    --h_freeConn;
-    ++h_curConn;
+    MYSQL *conn = g_connList.front();
+    g_connList.pop_front();
 
-    lock.unlock();
+    --g_freeConn;
+    ++g_curConn;
+
     return conn;
 }
 
-bool mysql_conn_pool::releaseConn(MYSQL *conn)
+bool MysqlConnPool::releaseConn(MYSQL *conn)
 {
-    if (conn == NULL)
+    if (!conn)
         return false;
-    lock.lock();
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_connList.push_back(conn);
+        ++g_freeConn;
+        --g_curConn;
+    }
 
-    connList.push_back(conn);
-    ++h_freeConn;
-    --h_curConn;
-
-    lock.unlock();
-
-    reserve.post();
+    g_condition.notify_one();
     return true;
 }
 
-void mysql_conn_pool::destroyPool()
-{
-    lock.lock();
-    if (connList.size() > 0)
-    {
-        list<MYSQL *>::iterator itr;
-        for (itr = connList.begin(); itr != connList.end(); ++itr)
-        {
-            MYSQL *conn = *itr;
-            mysql_close(conn);
-        }
-        h_curConn = 0;
-        h_freeConn = 0;
-
-        connList.clear();
-    }
-    lock.unlock();
-}
-
-int mysql_conn_pool::getFreeConn()
-{
-    return h_freeConn;
-}
-
-connRAII::connRAII(MYSQL **conn, mysql_conn_pool *connPool)
+MysqlConnGuard::MysqlConnGuard(MYSQL **conn, MysqlConnPool *connPool)
 {
     *conn = connPool->getConn();
-    h_connRAII = *conn;
-    h_poolRAII = connPool;
+    g_curConn = *conn;
+    g_connPool = connPool;
 }
 
-connRAII::~connRAII()
+MysqlConnGuard::~MysqlConnGuard()
 {
-    h_poolRAII->releaseConn(h_connRAII);
+    g_connPool->releaseConn(g_curConn);
 }

@@ -10,7 +10,7 @@
 class UserRepository
 {
 public:
-    bool init(mysql_conn_pool *connPool);
+    bool init(MysqlConnPool *connPool);
     bool exist(const std::string &username) const;
     bool create(const std::string &username, const std::string &password, MYSQL *conn);
     bool verify(const std::string &username, const std::string &password) const;

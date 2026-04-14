@@ -3,10 +3,10 @@
 
 namespace fd_event
 {
-int setNonBlocking(int fd);
-void add(int epollFd, int fd, bool oneShoot);
-void remove(int epollFd, int fd);
-void mod(int epollFd, int fd, int event);
+    int setNonBlocking(int fd);
+    void add(int epollFd, int fd, bool oneShoot);
+    void remove(int epollFd, int fd);
+    void mod(int epollFd, int fd, int event);
 }
 
 #endif

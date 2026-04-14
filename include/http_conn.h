@@ -42,7 +42,7 @@ public:
 public:
     // Shared connection state
     static void setEpollFd(int epollFd);
-    static bool initUserRepository(mysql_conn_pool *connPool);
+    static bool initUserRepository(MysqlConnPool *connPool);
     static int userCount();
 
 private:
