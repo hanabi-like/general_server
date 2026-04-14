@@ -43,16 +43,16 @@ int main(int argc, char *argv[])
     const char *ip = argv[1];
     int port = atoi(argv[2]);
 
-    http_conn *users = new http_conn[MAX_FD_NUM];
+    HttpConn *users = new HttpConn[MAX_FD_NUM];
     assert(users);
 
     mysql_conn_pool *connPool = mysql_conn_pool::getInstance();
     connPool->init();
 
-    threadpool<http_conn> *pool = NULL;
+    threadpool<HttpConn> *pool = NULL;
     try
     {
-        pool = new threadpool<http_conn>(connPool);
+        pool = new threadpool<HttpConn>(connPool);
     }
     catch (...)
     {
@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
     int epollfd = epoll_create(5);
     assert(epollfd != -1);
     fd_event::add(epollfd, listenfd, false);
-    http_conn::setEpollFd(epollfd);
+    HttpConn::setEpollFd(epollfd);
 
     while (true)
     {

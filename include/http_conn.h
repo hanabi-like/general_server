@@ -13,7 +13,7 @@
 #include "http_request_parser.h"
 #include "http_response.h"
 
-class http_conn
+class HttpConn
 {
 public:
     enum HTTP_CODE
@@ -29,8 +29,8 @@ public:
     };
 
 public:
-    http_conn() {}
-    ~http_conn() {}
+    HttpConn() {}
+    ~HttpConn() {}
 
 public:
     // Connection lifecycle

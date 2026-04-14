@@ -10,7 +10,7 @@
 #include <sys/socket.h>
 #include <sys/uio.h>
 
-void http_conn::init_mysql(mysql_conn_pool *connPool)
+void HttpConn::init_mysql(mysql_conn_pool *connPool)
 {
     MYSQL *conn = NULL;
     connRAII mysqlConn(&conn, connPool);
@@ -32,21 +32,21 @@ void http_conn::init_mysql(mysql_conn_pool *connPool)
     }
 }
 
-int http_conn::g_userCount = 0;
-int http_conn::g_epollFd = -1;
-unordered_map<string, string> http_conn::h_users;
+int HttpConn::g_userCount = 0;
+int HttpConn::g_epollFd = -1;
+unordered_map<string, string> HttpConn::h_users;
 
-void http_conn::setEpollFd(int epollFd)
+void HttpConn::setEpollFd(int epollFd)
 {
     g_epollFd = epollFd;
 }
 
-int http_conn::userCount()
+int HttpConn::userCount()
 {
     return g_userCount;
 }
 
-void http_conn::init(int sockfd, const sockaddr_in &addr, string user, string pwd, string dbname)
+void HttpConn::init(int sockfd, const sockaddr_in &addr, string user, string pwd, string dbname)
 {
     g_sockFd = sockfd;
     g_address = addr;
@@ -60,7 +60,7 @@ void http_conn::init(int sockfd, const sockaddr_in &addr, string user, string pw
     init();
 }
 
-void http_conn::init()
+void HttpConn::init()
 {
     conn = NULL;
     g_requestParser.reset();
@@ -70,7 +70,7 @@ void http_conn::init()
     g_response.init();
 }
 
-void http_conn::close_http_conn(bool real_close)
+void HttpConn::close_http_conn(bool real_close)
 {
     if (real_close && g_sockFd != -1)
     {
@@ -84,7 +84,7 @@ void http_conn::close_http_conn(bool real_close)
 非阻塞读
 循环读取直至无数据可读或者对方关闭连接
 */
-bool http_conn::read()
+bool HttpConn::read()
 {
     if (g_requestParser.readIndex() >= HttpRequestParser::READ_BUFFER_SIZE)
         return false;
@@ -110,7 +110,7 @@ bool http_conn::read()
     return true;
 }
 
-http_conn::HTTP_CODE http_conn::process_read()
+HttpConn::HTTP_CODE HttpConn::process_read()
 {
     HttpRequestParser::HttpCode httpCode = g_requestParser.process();
 
@@ -127,7 +127,7 @@ http_conn::HTTP_CODE http_conn::process_read()
     }
 }
 
-http_conn::HTTP_CODE http_conn::do_request()
+HttpConn::HTTP_CODE HttpConn::do_request()
 {
     const char *targetUrl = g_requestDispatcher.resolve(
         g_requestParser.url(),
@@ -153,7 +153,7 @@ http_conn::HTTP_CODE http_conn::do_request()
     }
 }
 
-bool http_conn::process_write(HTTP_CODE http_code)
+bool HttpConn::process_write(HTTP_CODE http_code)
 {
     switch (http_code)
     {
@@ -204,7 +204,7 @@ bool http_conn::process_write(HTTP_CODE http_code)
     return true;
 }
 
-bool http_conn::write()
+bool HttpConn::write()
 {
     int temp = 0;
     int bytes_have_send = 0;
@@ -261,7 +261,7 @@ bool http_conn::write()
     }
 }
 
-void http_conn::process()
+void HttpConn::process()
 {
     HTTP_CODE read_ret = process_read();
     if (read_ret == NO_REQUEST)
