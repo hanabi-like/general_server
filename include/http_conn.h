@@ -33,7 +33,7 @@ public:
 
 public:
     // Connection lifecycle
-    void init(int sockFd, const sockaddr_in &addr, std::string user = "user", std::string password = "180427", std::string dbName = "general_server");
+    void init(int sockFd, const sockaddr_in &addr);
     void close();
     bool read();
     bool write();
@@ -47,9 +47,9 @@ public:
 
 private:
     void reset();
-    ProcessResult process_read();
-    ProcessResult do_request(MYSQL *conn);
-    bool process_write(ProcessResult processResult);
+    ProcessResult parseRequest();
+    ProcessResult handleRequest(MYSQL *conn);
+    bool buildResponse(ProcessResult processResult);
 
 private:
     static int g_epollFd;
@@ -64,6 +64,8 @@ private:
     // Send state
     struct iovec g_iov[2];
     int g_iovCount;
+    size_t g_bytesHaveSent;
+    size_t g_bytesToSend;
 
     // Coordinated subsystems
     HttpRequestParser g_requestParser;
