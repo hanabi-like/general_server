@@ -10,17 +10,11 @@
 #include <sys/uio.h>
 
 int HttpConn::g_epollFd = -1;
-UserRepository HttpConn::g_userRepository;
 int HttpConn::g_userCount = 0;
 
 void HttpConn::setEpollFd(int epollFd)
 {
     g_epollFd = epollFd;
-}
-
-bool HttpConn::initUserRepository(MysqlConnPool *connPool)
-{
-    return g_userRepository.init(connPool);
 }
 
 int HttpConn::userCount()
@@ -134,7 +128,7 @@ bool HttpConn::write()
     }
 }
 
-void HttpConn::process(MYSQL *conn)
+void HttpConn::process()
 {
     ProcessResult ret = parseRequest();
     if (ret == NO_REQUEST)
@@ -143,7 +137,7 @@ void HttpConn::process(MYSQL *conn)
         return;
     }
     else if (ret == REQUEST_READY)
-        ret = handleRequest(conn);
+        ret = handleRequest();
     bool responseReady = buildResponse(ret);
     if (!responseReady)
     {
@@ -182,14 +176,9 @@ HttpConn::ProcessResult HttpConn::parseRequest()
     }
 }
 
-HttpConn::ProcessResult HttpConn::handleRequest(MYSQL *conn)
+HttpConn::ProcessResult HttpConn::handleRequest()
 {
-    const char *targetUrl = g_requestDispatcher.resolve(
-        g_requestParser.url(),
-        g_requestParser.cgi(),
-        g_requestParser.content(),
-        conn,
-        g_userRepository);
+    const char *targetUrl = g_requestDispatcher.resolve(g_requestParser.url());
 
     FileResource::Result result = g_fileResource.load(targetUrl);
     switch (result)

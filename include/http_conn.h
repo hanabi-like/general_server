@@ -6,12 +6,10 @@
 #include <unordered_map>
 #include <string>
 
-#include "mysql_conn_pool.h"
 #include "file_resource.h"
 #include "http_request_dispatcher.h"
 #include "http_request_parser.h"
 #include "http_response.h"
-#include "user_repository.h"
 
 class HttpConn
 {
@@ -37,23 +35,21 @@ public:
     void close();
     bool read();
     bool write();
-    void process(MYSQL *conn);
+    void process();
 
 public:
     // Shared connection state
     static void setEpollFd(int epollFd);
-    static bool initUserRepository(MysqlConnPool *connPool);
     static int userCount();
 
 private:
     void reset();
     ProcessResult parseRequest();
-    ProcessResult handleRequest(MYSQL *conn);
+    ProcessResult handleRequest();
     bool buildResponse(ProcessResult processResult);
 
 private:
     static int g_epollFd;
-    static UserRepository g_userRepository;
     static int g_userCount;
 
 private:

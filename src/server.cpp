@@ -13,7 +13,6 @@
 #include "config.h"
 #include "fd_event.h"
 #include "http_conn.h"
-#include "mysql_conn_pool.h"
 #include "thread_pool.h"
 
 static volatile sig_atomic_t stop = 0;
@@ -69,19 +68,10 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    MysqlConnPool *connPool = MysqlConnPool::getInstance();
-    if (!connPool->init())
-    {
-        fprintf(stderr, "mysql connection pool init failed\n");
-        return 1;
-    }
-
-    HttpConn::initUserRepository(connPool);
-
     std::unique_ptr<ThreadPool<HttpConn>> pool;
     try
     {
-        pool.reset(new ThreadPool<HttpConn>(connPool));
+        pool.reset(new ThreadPool<HttpConn>());
     }
     catch (const std::exception &e)
     {

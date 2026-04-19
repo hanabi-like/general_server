@@ -8,14 +8,12 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "mysql_conn_pool.h"
-
 template <typename T>
 class ThreadPool
 {
 public:
     // threadCount 线程池中的线程数 maxRequestNum 请求队列中允许的最大请求数
-    ThreadPool(MysqlConnPool *connPool, int threadCount = 8, int maxRequestNum = 10000);
+    ThreadPool(int threadCount = 8, int maxRequestNum = 10000);
     ~ThreadPool();
     bool append(T *request);
 
@@ -31,14 +29,13 @@ private:
     std::mutex g_queueMutex;                  // 互斥锁
     std::condition_variable g_queueCondition; // 是否有任务待处理
     bool g_stop;                              // 是否结束线程
-    MysqlConnPool *g_connPool;                // 数据库
 };
 
 template <typename T>
-ThreadPool<T>::ThreadPool(MysqlConnPool *connPool, int threadCount, int maxRequestNum)
-    : g_threadCount(threadCount), g_maxRequestNum(maxRequestNum), g_thread(NULL), g_stop(false), g_connPool(connPool)
+ThreadPool<T>::ThreadPool(int threadCount, int maxRequestNum)
+    : g_threadCount(threadCount), g_maxRequestNum(maxRequestNum), g_thread(NULL), g_stop(false)
 {
-    if (connPool == nullptr || threadCount <= 0 || maxRequestNum <= 0)
+    if (threadCount <= 0 || maxRequestNum <= 0)
         throw std::exception();
 
     g_thread = new pthread_t[g_threadCount];
@@ -112,11 +109,7 @@ void ThreadPool<T>::run()
         }
         if (!request)
             continue;
-        MYSQL *conn = nullptr;
-        MysqlConnGuard connGuard(conn, g_connPool);
-        if (conn == nullptr)
-            continue;
-        request->process(conn);
+        request->process();
     }
 }
 
