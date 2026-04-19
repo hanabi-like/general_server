@@ -3,7 +3,10 @@
 bool UserRepository::init(MysqlConnPool *connPool)
 {
     MYSQL *conn = nullptr;
-    MysqlConnGuard connGuard(&conn, connPool);
+    MysqlConnGuard connGuard(conn, connPool);
+
+    if (conn == nullptr)
+        return false;
 
     if (mysql_query(conn, "SELECT username,password FROM user"))
         return false;
@@ -30,6 +33,9 @@ bool UserRepository::exist(const std::string &username) const
 
 bool UserRepository::create(const std::string &username, const std::string &password, MYSQL *conn)
 {
+    if (conn == nullptr)
+        return false;
+
     std::lock_guard<std::mutex> lock(g_mutex);
 
     if (g_user.find(username) != g_user.end())

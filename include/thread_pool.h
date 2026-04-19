@@ -38,7 +38,7 @@ template <typename T>
 ThreadPool<T>::ThreadPool(MysqlConnPool *connPool, int threadCount, int maxRequestNum)
     : g_threadCount(threadCount), g_maxRequestNum(maxRequestNum), g_thread(NULL), g_stop(false), g_connPool(connPool)
 {
-    if (threadCount <= 0 || maxRequestNum <= 0)
+    if (connPool == nullptr || threadCount <= 0 || maxRequestNum <= 0)
         throw std::exception();
 
     g_thread = new pthread_t[g_threadCount];
@@ -77,7 +77,7 @@ bool ThreadPool<T>::append(T *request)
 {
     {
         std::lock_guard<std::mutex> lock(g_queueMutex);
-        if (g_workQueue.size() > g_maxRequestNum)
+        if (g_workQueue.size() >= g_maxRequestNum)
             return false;
         g_workQueue.push_back(request);
     }
@@ -113,7 +113,9 @@ void ThreadPool<T>::run()
         if (!request)
             continue;
         MYSQL *conn = nullptr;
-        MysqlConnGuard connGuard(&conn, g_connPool);
+        MysqlConnGuard connGuard(conn, g_connPool);
+        if (conn == nullptr)
+            continue;
         request->process(conn);
     }
 }

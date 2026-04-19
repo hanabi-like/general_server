@@ -1,129 +1,191 @@
-// C / C++ 标准库
-#include <cassert>
+#include <cerrno>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <cerrno>
-#include <csignal>
-
-// 系统调用相关
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#include <memory>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 #include <sys/epoll.h>
-#include <pthread.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
-// 本地项目头文件
 #include "config.h"
 #include "fd_event.h"
-#include "thread_pool.h"
 #include "http_conn.h"
 #include "mysql_conn_pool.h"
+#include "thread_pool.h"
 
-static bool stop = false;
-// SIGTERM
-static void handle_term(int sig)
+static volatile sig_atomic_t stop = 0;
+
+static void handleStop(int)
 {
-    stop = true;
+    stop = 1;
 }
 
 int main(int argc, char *argv[])
 {
-    signal(SIGTERM, handle_term);
+    signal(SIGINT, handleStop);
+    signal(SIGTERM, handleStop);
+    signal(SIGPIPE, SIG_IGN);
 
-    if (argc <= 2)
+    if (argc != 3)
     {
-        printf("usage: %s ip_address port_number\n", basename(argv[0]));
+        fprintf(stderr, "usage: %s ip port\n", basename(argv[0]));
         return 1;
     }
+
     const char *ip = argv[1];
-    int port = atoi(argv[2]);
+    if (strcmp(ip, "localhost") == 0)
+        ip = "127.0.0.1";
 
-    HttpConn *users = new HttpConn[MAX_FD_NUM];
-    assert(users);
+    char *end = nullptr;
+    long parsedPort = strtol(argv[2], &end, 10);
+    if (*argv[2] == '\0' || *end != '\0' || parsedPort <= 0 || parsedPort > 65535)
+    {
+        fprintf(stderr, "invalid port: %s\n", argv[2]);
+        return 1;
+    }
+    int port = static_cast<int>(parsedPort);
 
-    MysqlConnPool *connPool = MysqlConnPool::getInstance();
-    connPool->init();
+    sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_port = htons(port);
 
-    ThreadPool<HttpConn> *pool = NULL;
+    if (inet_pton(AF_INET, ip, &address.sin_addr) != 1)
+    {
+        fprintf(stderr, "invalid ip: %s\n", ip);
+        return 1;
+    }
+
+    std::unique_ptr<HttpConn[]> conns;
     try
     {
-        pool = new ThreadPool<HttpConn>(connPool);
+        conns.reset(new HttpConn[MAX_FD_NUM]);
     }
-    catch (...)
+    catch (const std::exception &e)
     {
+        fprintf(stderr, "allocate HttpConn array failed: %s\n", e.what());
+        return 1;
+    }
+
+    MysqlConnPool *connPool = MysqlConnPool::getInstance();
+    if (!connPool->init())
+    {
+        fprintf(stderr, "mysql connection pool init failed\n");
         return 1;
     }
 
     HttpConn::initUserRepository(connPool);
-    // int user_count=0;
 
-    int ret = 0;
-    struct sockaddr_in address;
-    bzero(&address, sizeof(address));
-    address.sin_family = AF_INET;
-    inet_pton(AF_INET, ip, &address.sin_addr);
-    address.sin_port = htons(port);
+    std::unique_ptr<ThreadPool<HttpConn>> pool;
+    try
+    {
+        pool.reset(new ThreadPool<HttpConn>(connPool));
+    }
+    catch (const std::exception &e)
+    {
+        fprintf(stderr, "thread pool init failed: %s\n", e.what());
+        return 1;
+    }
 
-    int listenfd = socket(PF_INET, SOCK_STREAM, 0);
-    assert(listenfd >= 0);
+    int listenFd = socket(AF_INET, SOCK_STREAM, 0);
+    if (listenFd < 0)
+    {
+        perror("socket");
+        return 1;
+    }
 
-    ret = bind(listenfd, (struct sockaddr *)&address, sizeof(address));
-    assert(ret != -1);
+    int option = 1;
+    if (setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option)) < 0)
+    {
+        perror("setsockopt SO_REUSEADDR");
+        close(listenFd);
+        return 1;
+    }
 
-    ret = listen(listenfd, 5);
-    assert(ret != -1);
+    if (bind(listenFd, (sockaddr *)&address, sizeof(address)) < 0)
+    {
+        perror("bind");
+        close(listenFd);
+        return 1;
+    }
+
+    if (listen(listenFd, SOMAXCONN) < 0)
+    {
+        perror("listen");
+        close(listenFd);
+        return 1;
+    }
 
     epoll_event events[MAX_EVENT_NUM];
-    int epollfd = epoll_create(5);
-    assert(epollfd != -1);
-    fd_event::add(epollfd, listenfd, false);
-    HttpConn::setEpollFd(epollfd);
 
-    while (true)
+    int epollFd = epoll_create1(0);
+    if (epollFd < 0)
     {
-        int num = epoll_wait(epollfd, events, MAX_EVENT_NUM, -1);
+        perror("epoll_create1");
+        close(listenFd);
+        return 1;
+    }
+    fd_event::add(epollFd, listenFd, false);
+    HttpConn::setEpollFd(epollFd);
+
+    while (!stop)
+    {
+        int num = epoll_wait(epollFd, events, MAX_EVENT_NUM, -1);
+
         if (num < 0)
         {
-            printf("epoll failure\n");
+            if (errno == EINTR)
+                continue;
+            perror("epoll_wait");
             break;
         }
 
         for (int i = 0; i < num; ++i)
         {
-            int sockfd = events[i].data.fd;
-            if (sockfd == listenfd)
+            int fd = events[i].data.fd;
+            if (fd == listenFd)
             {
-                struct sockaddr_in client_address;
-                socklen_t client_addrlength = sizeof(client_address);
-                int connfd = accept(listenfd, (struct sockaddr *)&client_address, &client_addrlength);
-                users[connfd].init(connfd, client_address);
+                while (true)
+                {
+                    sockaddr_in clientAddr;
+                    socklen_t clientAddrLength = sizeof(clientAddr);
+                    int connFd = accept(listenFd, (sockaddr *)&clientAddr, &clientAddrLength);
+                    if (connFd < 0)
+                    {
+                        if (errno == EAGAIN || errno == EWOULDBLOCK)
+                            break;
+                        perror("accept");
+                        break;
+                    }
+                    if (connFd >= MAX_FD_NUM)
+                    {
+                        close(connFd);
+                        continue;
+                    }
+                    conns[connFd].init(connFd, clientAddr);
+                }
             }
+            else if (fd < 0 || fd >= MAX_FD_NUM)
+                continue;
             else if (events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR))
-                users[sockfd].close();
+                conns[fd].close();
             else if (events[i].events & EPOLLIN)
             {
-                if (users[sockfd].read())
-                    pool->append(users + sockfd);
+                if (conns[fd].read())
+                    pool->append(conns.get() + fd);
                 else
-                    users[sockfd].close();
+                    conns[fd].close();
             }
             else if (events[i].events & EPOLLOUT)
             {
-                if (!users[sockfd].write())
-                    users[sockfd].close();
-            }
-            else
-            {
+                if (!conns[fd].write())
+                    conns[fd].close();
             }
         }
     }
-    close(epollfd);
-    close(listenfd);
-    delete[] users;
-    delete pool;
+    close(listenFd);
+    close(epollFd);
     return 0;
 }

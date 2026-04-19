@@ -1,6 +1,6 @@
 #include "mysql_conn_pool.h"
 
-#include <cstdlib>
+#include <cstdio>
 
 MysqlConnPool *MysqlConnPool::getInstance()
 {
@@ -15,6 +15,7 @@ void MysqlConnPool::destroy()
     for (auto conn : g_connList)
         mysql_close(conn);
 
+    g_maxConn = 0;
     g_curConn = 0;
     g_freeConn = 0;
     g_connList.clear();
@@ -30,8 +31,13 @@ MysqlConnPool::~MysqlConnPool()
     destroy();
 }
 
-void MysqlConnPool::init(std::string url, int port, std::string user, std::string password, std::string dbName, int maxConn)
+bool MysqlConnPool::init(const std::string &url, int port, const std::string &user, const std::string &password, const std::string &dbName, int maxConn)
 {
+    if (maxConn <= 0)
+    {
+        fprintf(stderr, "invalid mysql max connection count: %d\n", maxConn);
+        return false;
+    }
     g_url = url;
     g_port = port;
     g_user = user;
@@ -40,19 +46,29 @@ void MysqlConnPool::init(std::string url, int port, std::string user, std::strin
 
     for (int i = 0; i < maxConn; ++i)
     {
-        MYSQL *conn = nullptr;
-        conn = mysql_init(conn);
+        MYSQL *conn = mysql_init(nullptr);
+        if (conn == nullptr)
+        {
+            destroy();
+            fprintf(stderr, "mysql_init failed\n");
+            return false;
+        }
 
-        if (conn == nullptr)
-            exit(1);
-        conn = mysql_real_connect(conn, url.c_str(), user.c_str(), password.c_str(), dbName.c_str(), port, nullptr, 0);
-        if (conn == nullptr)
-            exit(1);
+        if (mysql_real_connect(conn, url.c_str(), user.c_str(), password.c_str(), dbName.c_str(), port, nullptr, 0) == nullptr)
+        {
+            mysql_close(conn);
+            destroy();
+            fprintf(stderr, "mysql_real_connect failed\n");
+            return false;
+        }
+
         g_connList.push_back(conn);
         ++g_freeConn;
     }
 
     g_maxConn = maxConn;
+
+    return true;
 }
 
 MYSQL *MysqlConnPool::getConn()
@@ -86,14 +102,17 @@ bool MysqlConnPool::releaseConn(MYSQL *conn)
     return true;
 }
 
-MysqlConnGuard::MysqlConnGuard(MYSQL **conn, MysqlConnPool *connPool)
+MysqlConnGuard::MysqlConnGuard(MYSQL *&conn, MysqlConnPool *connPool) : g_curConn(nullptr), g_connPool(nullptr)
 {
-    *conn = connPool->getConn();
-    g_curConn = *conn;
+    if (connPool == nullptr)
+        return;
+    conn = connPool->getConn();
+    g_curConn = conn;
     g_connPool = connPool;
 }
 
 MysqlConnGuard::~MysqlConnGuard()
 {
-    g_connPool->releaseConn(g_curConn);
+    if (g_curConn != nullptr && g_connPool != nullptr)
+        g_connPool->releaseConn(g_curConn);
 }

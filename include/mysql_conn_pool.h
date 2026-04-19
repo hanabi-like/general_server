@@ -31,17 +31,17 @@ public:
     bool releaseConn(MYSQL *conn);
 
     static MysqlConnPool *getInstance();
-    void init(std::string url = "localhost", int port = 3306, std::string user = "user", std::string password = "180427", std::string dbName = "general_server", int maxConn = 8);
+    bool init(const std::string &url = "localhost", int port = 3306, const std::string &user = "user", const std::string &password = "180427", const std::string &dbName = "general_server", int maxConn = 8);
 };
 
 class MysqlConnGuard
 {
 private:
-    MYSQL *g_curConn;
-    MysqlConnPool *g_connPool;
+    MYSQL *g_curConn = nullptr;
+    MysqlConnPool *g_connPool = nullptr;
 
 public:
-    MysqlConnGuard(MYSQL **conn, MysqlConnPool *connPool);
+    MysqlConnGuard(MYSQL *&conn, MysqlConnPool *connPool);
     ~MysqlConnGuard();
 };
 
