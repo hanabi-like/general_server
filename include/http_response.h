@@ -15,6 +15,7 @@ public:
     bool buildForbidden(bool linger);
     bool buildNotFound(bool linger);
     bool buildInternalError(bool linger);
+    bool buildBadGateway(bool linger);
 
     char *buffer();
     int bufferSize() const;

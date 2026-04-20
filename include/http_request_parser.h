@@ -59,7 +59,6 @@ public:
     bool keepAlive() const;
     int contentLength() const;
     char *content() const;
-    bool cgi() const;
 
 private:
     LineStatus parseLine();
@@ -78,8 +77,6 @@ private:
     int g_contentLength;
     // request body
     char *g_content;
-
-    bool g_cgi;
 
     CheckStatus g_checkStatus;
 

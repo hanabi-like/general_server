@@ -4,22 +4,21 @@
 #include <cerrno>
 #include <cstring>
 #include <netinet/in.h>
-#include <string>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 
 int HttpConn::g_epollFd = -1;
-int HttpConn::g_userCount = 0;
+int HttpConn::g_connectionCount = 0;
 
 void HttpConn::setEpollFd(int epollFd)
 {
     g_epollFd = epollFd;
 }
 
-int HttpConn::userCount()
+int HttpConn::connectionCount()
 {
-    return g_userCount;
+    return g_connectionCount;
 }
 
 void HttpConn::init(int sockFd, const sockaddr_in &addr)
@@ -27,7 +26,7 @@ void HttpConn::init(int sockFd, const sockaddr_in &addr)
     g_sockFd = sockFd;
     g_address = addr;
     fd_event::add(g_epollFd, sockFd, true);
-    ++g_userCount;
+    ++g_connectionCount;
 
     reset();
 }
@@ -38,7 +37,7 @@ void HttpConn::close()
     {
         fd_event::remove(g_epollFd, g_sockFd);
         g_sockFd = -1;
-        --g_userCount;
+        --g_connectionCount;
     }
 }
 
@@ -178,19 +177,29 @@ HttpConn::ProcessResult HttpConn::parseRequest()
 
 HttpConn::ProcessResult HttpConn::handleRequest()
 {
-    const char *targetUrl = g_requestDispatcher.resolve(g_requestParser.url());
+    RouteResult route = g_requestDispatcher.resolve(g_requestParser.url());
 
-    FileResource::Result result = g_fileResource.load(targetUrl);
-    switch (result)
+    switch (route.type)
     {
-    case FileResource::OK:
-        return FILE_READY;
-    case FileResource::BAD_REQUEST:
-        return BAD_REQUEST;
-    case FileResource::FORBIDDEN:
-        return FORBIDDEN_REQUEST;
-    case FileResource::NOT_FOUND:
-        return NO_RESOURCE;
+    case RouteResult::PROXY:
+        return BAD_GATEWAY;
+    case RouteResult::LOCAL:
+    {
+        FileResource::Result result = g_fileResource.load(route.target);
+        switch (result)
+        {
+        case FileResource::OK:
+            return FILE_READY;
+        case FileResource::BAD_REQUEST:
+            return BAD_REQUEST;
+        case FileResource::FORBIDDEN:
+            return FORBIDDEN_REQUEST;
+        case FileResource::NOT_FOUND:
+            return NO_RESOURCE;
+        default:
+            return INTERNAL_ERROR;
+        }
+    }
     default:
         return INTERNAL_ERROR;
     }
@@ -221,6 +230,12 @@ bool HttpConn::buildResponse(ProcessResult processResult)
     case INTERNAL_ERROR:
     {
         if (!g_response.buildInternalError(g_requestParser.keepAlive()))
+            return false;
+        break;
+    }
+    case BAD_GATEWAY:
+    {
+        if (!g_response.buildBadGateway(g_requestParser.keepAlive()))
             return false;
         break;
     }

@@ -1,17 +1,16 @@
 #ifndef HTTP_REQUEST_DISPATCHER_H
 #define HTTP_REQUEST_DISPATCHER_H
 
-#include <string>
-
-#include "page_request_handler.h"
+#include "local_route_resolver.h"
+#include "route_result.h"
 
 class HttpRequestDispatcher
 {
 public:
-    const char *resolve(const char *url);
+    RouteResult resolve(const char *url);
 
 private:
-    PageRequestHandler g_pageRequestHandler;
+    LocalRouteResolver g_localRouteResolver;
 };
 
 #endif

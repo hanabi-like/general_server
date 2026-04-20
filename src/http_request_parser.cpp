@@ -21,8 +21,6 @@ void HttpRequestParser::reset()
 
     g_content = 0;
 
-    g_cgi = false;
-
     g_checkStatus = CHECK_STATE_REQUEST_LINE;
 
     std::memset(g_readBuf, '\0', READ_BUFFER_SIZE);
@@ -134,10 +132,7 @@ HttpRequestParser::parseRequestLine(char *text)
     if (strcasecmp(method, "GET") == 0)
         g_method = GET;
     else if (strcasecmp(method, "POST") == 0)
-    {
         g_method = POST;
-        g_cgi = true;
-    }
     else
         return BAD_REQUEST;
 
@@ -247,9 +242,4 @@ int HttpRequestParser::contentLength() const
 char *HttpRequestParser::content() const
 {
     return g_content;
-}
-
-bool HttpRequestParser::cgi() const
-{
-    return g_cgi;
 }

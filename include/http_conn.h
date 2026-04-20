@@ -3,8 +3,6 @@
 
 #include <netinet/in.h>
 #include <sys/uio.h>
-#include <unordered_map>
-#include <string>
 
 #include "file_resource.h"
 #include "http_request_dispatcher.h"
@@ -22,7 +20,8 @@ public:
         BAD_REQUEST,
         FORBIDDEN_REQUEST,
         NO_RESOURCE,
-        INTERNAL_ERROR
+        INTERNAL_ERROR,
+        BAD_GATEWAY
     };
 
 public:
@@ -40,7 +39,7 @@ public:
 public:
     // Shared connection state
     static void setEpollFd(int epollFd);
-    static int userCount();
+    static int connectionCount();
 
 private:
     void reset();
@@ -50,7 +49,7 @@ private:
 
 private:
     static int g_epollFd;
-    static int g_userCount;
+    static int g_connectionCount;
 
 private:
     // Connection state
