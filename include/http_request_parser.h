@@ -54,6 +54,7 @@ public:
 
     Method method() const;
     char *url() const;
+    char *query() const;
     char *version() const;
     char *host() const;
     bool keepAlive() const;
@@ -70,6 +71,7 @@ private:
     // request line
     Method g_method;
     char *g_url;
+    char *g_query;
     char *g_version;
     // request headers
     char *g_host;

@@ -13,6 +13,7 @@ void HttpRequestParser::reset()
 {
     g_method = GET;
     g_url = 0;
+    g_query = 0;
     g_version = 0;
 
     g_host = 0;
@@ -155,6 +156,12 @@ HttpRequestParser::parseRequestLine(char *text)
     if (!g_url || g_url[0] != '/')
         return BAD_REQUEST;
 
+    g_query = std::strchr(g_url, '?');
+    if (g_query != nullptr)
+    {
+        *g_query++ = '\0';
+    }
+
     if (std::strlen(g_url) == 1)
         std::strcat(g_url, "home.html");
 
@@ -217,6 +224,11 @@ HttpRequestParser::Method HttpRequestParser::method() const
 char *HttpRequestParser::url() const
 {
     return g_url;
+}
+
+char *HttpRequestParser::query() const
+{
+    return g_query;
 }
 
 char *HttpRequestParser::version() const
