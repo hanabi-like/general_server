@@ -19,9 +19,14 @@
             <input type="submit" value="注册">
         </form>
 
+        <p id="message"></p>
+
         <script>
             document.getElementById("registerForm").addEventListener("submit", function (event) {
                 event.preventDefault();
+
+                var message = document.getElementById("message");
+                message.textContent = "";
 
                 fetch("/api/auth/register", {
                     method: "POST",
@@ -32,6 +37,24 @@
                         username: document.getElementById("username").value,
                         password: document.getElementById("password").value
                     })
+                }).then(function (response) {
+                    return response.text().then(function (text) {
+                        var data = null;
+
+                        try {
+                            data = text ? JSON.parse(text) : null;
+                        } catch (e) {
+                            data = null;
+                        }
+
+                        if (response.status === 201) {
+                            message.textContent = data && data.message ? data.message : "注册成功";
+                        } else {
+                            message.textContent = data && data.message ? data.message : "注册失败";
+                        }
+                    });
+                }).catch(function () {
+                    message.textContent = "服务暂不可用";
                 });
             });
         </script>

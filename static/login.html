@@ -19,9 +19,14 @@
             <input type="submit" value="登录">
         </form>
 
+        <p id="message"></p>
+
         <script>
             document.getElementById("loginForm").addEventListener("submit", function (event) {
                 event.preventDefault();
+
+                var message = document.getElementById("message");
+                message.textContent = "";
 
                 fetch("/api/auth/login", {
                     method: "POST",
@@ -32,6 +37,24 @@
                         username: document.getElementById("username").value,
                         password: document.getElementById("password").value
                     })
+                }).then(function (response) {
+                    return response.text().then(function (text) {
+                        var data = null;
+
+                        try {
+                            data = text ? JSON.parse(text) : null;
+                        } catch (e) {
+                            data = null;
+                        }
+
+                        if (response.status === 200) {
+                            message.textContent = data && data.message ? data.message : "登录成功";
+                        } else {
+                            message.textContent = data && data.message ? data.message : "登录失败";
+                        }
+                    });
+                }).catch(function () {
+                    message.textContent = "服务暂不可用";
                 });
             });
         </script>
