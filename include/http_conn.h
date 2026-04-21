@@ -8,6 +8,8 @@
 #include "http_request_dispatcher.h"
 #include "http_request_parser.h"
 #include "http_response.h"
+#include "upstream_client.h"
+#include "upstream_response.h"
 
 class HttpConn
 {
@@ -17,11 +19,19 @@ public:
         NO_REQUEST,
         REQUEST_READY,
         FILE_READY,
+        PROXY_READY,
         BAD_REQUEST,
         FORBIDDEN_REQUEST,
         NO_RESOURCE,
         INTERNAL_ERROR,
         BAD_GATEWAY
+    };
+
+    enum ResponseMode
+    {
+        RESPONSE_NONE,
+        RESPONSE_LOCAL,
+        RESPONSE_PROXY
     };
 
 public:
@@ -61,12 +71,15 @@ private:
     int g_iovCount;
     size_t g_bytesHaveSent;
     size_t g_bytesToSend;
+    ResponseMode g_responseMode;
 
     // Coordinated subsystems
     HttpRequestParser g_requestParser;
     HttpRequestDispatcher g_requestDispatcher;
     FileResource g_fileResource;
     HttpResponse g_response;
+    UpstreamClient g_upstreamClient;
+    UpstreamResponse g_upstreamResponse;
 };
 
 #endif

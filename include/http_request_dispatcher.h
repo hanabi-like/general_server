@@ -2,15 +2,17 @@
 #define HTTP_REQUEST_DISPATCHER_H
 
 #include "local_route_resolver.h"
-#include "route_result.h"
+#include "proxy_route_resolver.h"
+#include "resolved_route.h"
 
 class HttpRequestDispatcher
 {
 public:
-    RouteResult resolve(const char *url);
+    ResolvedRoute resolve(const char *url, const char *query);
 
 private:
     LocalRouteResolver g_localRouteResolver;
+    ProxyRouteResolver g_proxyRouteResolver;
 };
 
 #endif
