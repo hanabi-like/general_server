@@ -58,6 +58,7 @@ public:
     char *version() const;
     char *host() const;
     bool keepAlive() const;
+    char *contentType() const;
     int contentLength() const;
     char *content() const;
 
@@ -76,6 +77,7 @@ private:
     // request headers
     char *g_host;
     bool g_linger;
+    char *g_contentType;
     int g_contentLength;
     // request body
     char *g_content;

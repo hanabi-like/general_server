@@ -141,11 +141,13 @@ bool UpstreamClient::buildRequest(const ProxyRequestTarget &proxyRequestTarget,
     out << "X-Forwarded-Proto: http\r\n";
 
     const char *body = request.content();
-    int bodyLength = request.contentLength();
-    if (body != nullptr && bodyLength > 0)
+    const char *contentType = request.contentType();
+    int contentLength = request.contentLength();
+    if (body != nullptr && contentLength > 0)
     {
-        out << "Content-Type: application/x-www-form-urlencoded\r\n";
-        out << "Content-Length: " << bodyLength << "\r\n";
+        if (contentType != nullptr)
+            out << "Content-Type: " << contentType << "\r\n";
+        out << "Content-Length: " << contentLength << "\r\n";
     }
     else
     {
@@ -154,8 +156,8 @@ bool UpstreamClient::buildRequest(const ProxyRequestTarget &proxyRequestTarget,
 
     out << "\r\n";
 
-    if (body != nullptr && bodyLength > 0)
-        out.write(body, bodyLength);
+    if (body != nullptr && contentLength > 0)
+        out.write(body, contentLength);
 
     requestText = out.str();
 

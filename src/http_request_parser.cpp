@@ -18,6 +18,7 @@ void HttpRequestParser::reset()
 
     g_host = 0;
     g_linger = false;
+    g_contentType = 0;
     g_contentLength = 0;
 
     g_content = 0;
@@ -194,6 +195,12 @@ HttpRequestParser::ParseResult HttpRequestParser::parseRequestHeaders(char
         if (strcasecmp(text, "keep-alive") == 0)
             g_linger = true;
     }
+    else if (strncasecmp(text, "Content-Type:", 13) == 0)
+    {
+        text += 13;
+        text += strspn(text, " \t");
+        g_contentType = text;
+    }
     else if (strncasecmp(text, "Content-Length:", 15) == 0)
     {
         text += 15;
@@ -244,6 +251,11 @@ char *HttpRequestParser::host() const
 bool HttpRequestParser::keepAlive() const
 {
     return g_linger;
+}
+
+char *HttpRequestParser::contentType() const
+{
+    return g_contentType;
 }
 
 int HttpRequestParser::contentLength() const
