@@ -17,6 +17,7 @@ void HttpRequestParser::reset()
     g_version = 0;
 
     g_host = 0;
+    g_xUserName = 0;
     g_linger = false;
     g_contentType = 0;
     g_contentLength = 0;
@@ -188,6 +189,12 @@ HttpRequestParser::ParseResult HttpRequestParser::parseRequestHeaders(char
         text += strspn(text, " \t");
         g_host = text;
     }
+    else if (strncasecmp(text, "X-User-Name:", 12) == 0)
+    {
+        text += 12;
+        text += strspn(text, " \t");
+        g_xUserName = text;
+    }
     else if (strncasecmp(text, "Connection:", 11) == 0)
     {
         text += 11;
@@ -246,6 +253,11 @@ char *HttpRequestParser::version() const
 char *HttpRequestParser::host() const
 {
     return g_host;
+}
+
+char *HttpRequestParser::xUserName() const
+{
+    return g_xUserName;
 }
 
 bool HttpRequestParser::keepAlive() const

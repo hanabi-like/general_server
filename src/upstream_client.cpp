@@ -140,6 +140,9 @@ bool UpstreamClient::buildRequest(const ProxyRequestTarget &proxyRequestTarget,
 
     out << "X-Forwarded-Proto: http\r\n";
 
+    if (request.xUserName() != nullptr)
+        out << "X-User-Name: " << request.xUserName() << "\r\n";
+
     const char *body = request.content();
     const char *contentType = request.contentType();
     int contentLength = request.contentLength();
