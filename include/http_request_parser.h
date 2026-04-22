@@ -57,6 +57,7 @@ public:
     char *query() const;
     char *version() const;
     char *host() const;
+    char *xUserName() const;
     bool keepAlive() const;
     char *contentType() const;
     int contentLength() const;
@@ -76,6 +77,7 @@ private:
     char *g_version;
     // request headers
     char *g_host;
+    char *g_xUserName;
     bool g_linger;
     char *g_contentType;
     int g_contentLength;

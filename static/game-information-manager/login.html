@@ -49,6 +49,15 @@
 
                         if (response.status === 200) {
                             message.textContent = data && data.message ? data.message : "登录成功";
+
+                            var username = document.getElementById("username").value;
+
+                            sessionStorage.setItem("gameInformationManagerLogin", "true");
+                            sessionStorage.setItem("gameInformationManagerXUserName", username);
+
+                            setTimeout(function () {
+                                window.location.href = "/game-information-manager/game-information.html";
+                            }, 500);
                         } else {
                             message.textContent = data && data.message ? data.message : "登录失败";
                         }

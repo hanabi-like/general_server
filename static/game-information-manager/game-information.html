@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>game information</title>
+</head>
+
+<body>
+    <div align="center">
+        <h1>游戏信息</h1>
+
+        <hr>
+
+        <h2>游戏选择</h2>
+        <select id="gameName">
+            <option value="Genshin%20Impact">Genshin Impact</option>
+        </select>
+
+        <h2>角色查询</h2>
+        <form id="getGameCharacter">
+            <input type="submit" value="查询角色">
+        </form>
+
+        <pre id="GameCharacter"></pre>
+
+        <h2>角色添加</h2>
+        <form id="saveGameCharacter">
+            order:<input type="number" id="characterOrder" name="order">
+            <br>
+            name:<input type="text" id="characterName" name="name">
+            <br>
+            sex:<input type="number" id="characterSex" name="sex">
+            <br>
+            region:<input type="text" id="characterRegion" name="region">
+            <br>
+            quality:<input type="number" id="characterQuality" name="quality">
+            <br>
+            <input type="submit" value="添加角色">
+        </form>
+
+        <pre id="message"></pre>
+    </div>
+
+    <script>
+        if (sessionStorage.getItem("gameInformationManagerLogin") !== "true") {
+            window.location.href = "/game-information-manager/login.html";
+        }
+
+        function xUserName() {
+            return sessionStorage.getItem("gameInformationManagerXUserName");
+        }
+
+        function gameName() {
+            return document.getElementById("gameName").value;
+        }
+
+        function getGameCharacterUrl() {
+            return "/api/game-information-manager/game/" + gameName() + "/character";
+        }
+
+        document.getElementById("getGameCharacter").addEventListener("submit", function (event) {
+            event.preventDefault();
+
+            if (!xUserName()) {
+                window.location.href = "/game-information-manager/login.html";
+                return;
+            }
+
+            var result = document.getElementById("GameCharacter");
+            result.textContent = "查询中...";
+
+            fetch(getGameCharacterUrl(), {
+                method: "GET",
+                headers: {
+                    "X-User-Name": xUserName()
+                }
+            }).then(function (response) {
+                return response.text().then(function (text) {
+                    result.textContent = text || "暂无内容";
+                });
+            }).catch(function () {
+                result.textContent = "服务暂不可用";
+            });
+        });
+
+        document.getElementById("saveGameCharacter").addEventListener("submit", function (event) {
+            event.preventDefault();
+
+            var message = document.getElementById("message");
+            message.textContent = "";
+
+            if (!xUserName()) {
+                window.location.href = "/game-information-manager/login.html";
+                return;
+            }
+
+            fetch(getGameCharacterUrl(), {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-User-Name": xUserName()
+                },
+                body: JSON.stringify({
+                    order: document.getElementById("characterOrder").value,
+                    name: document.getElementById("characterName").value,
+                    sex: document.getElementById("characterSex").value,
+                    region: document.getElementById("characterRegion").value,
+                    quality: document.getElementById("characterQuality").value,
+
+                })
+            }).then(function (response) {
+                return response.text().then(function (text) {
+                    if (response.status >= 200 && response.status < 300) {
+                        message.textContent = text || "添加成功";
+                    } else {
+                        message.textContent = text || "添加失败";
+                    }
+                });
+            }).catch(function () {
+                message.textContent = "服务暂不可用";
+            });
+        });
+    </script>
+</body>
+
+</html>
