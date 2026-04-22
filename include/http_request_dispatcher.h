@@ -1,26 +1,18 @@
 #ifndef HTTP_REQUEST_DISPATCHER_H
 #define HTTP_REQUEST_DISPATCHER_H
 
-#include <string>
-
-#include "auth_request_handler.h"
-#include "mysql_conn_pool.h"
-#include "page_request_handler.h"
-#include "user_repository.h"
+#include "local_route_resolver.h"
+#include "proxy_route_resolver.h"
+#include "resolved_route.h"
 
 class HttpRequestDispatcher
 {
 public:
-    const char *resolve(
-        const char *url,
-        bool cgi,
-        const char *content,
-        MYSQL *conn,
-        UserRepository &userRepository);
+    ResolvedRoute resolve(const char *url, const char *query);
 
 private:
-    PageRequestHandler g_pageRequestHandler;
-    AuthRequestHandler g_authRequestHandler;
+    LocalRouteResolver g_localRouteResolver;
+    ProxyRouteResolver g_proxyRouteResolver;
 };
 
 #endif

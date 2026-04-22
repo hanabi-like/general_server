@@ -1,18 +1,10 @@
 #include "http_request_dispatcher.h"
 
-#include <cstring>
-
-const char *HttpRequestDispatcher::resolve(
-    const char *url,
-    bool cgi,
-    const char *content,
-    MYSQL *conn,
-    UserRepository &userRepository)
+ResolvedRoute HttpRequestDispatcher::resolve(const char *url, const char *query)
 {
-    const char *p = std::strrchr(url, '/');
-    if (!p || *(p + 1) == '\0')
-        return url;
-    if (cgi && (*(p + 1) == '2' || *(p + 1) == '3'))
-        return g_authRequestHandler.resolve(url, content, conn, userRepository);
-    return g_pageRequestHandler.resolve(url);
+    ProxyRequestTarget proxyRequestTarget;
+    if (g_proxyRouteResolver.resolve(url, query, proxyRequestTarget))
+        return ResolvedRoute(ResolvedRoute::PROXY, nullptr, proxyRequestTarget);
+
+    return ResolvedRoute(ResolvedRoute::LOCAL, g_localRouteResolver.resolve(url));
 }

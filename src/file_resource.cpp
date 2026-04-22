@@ -7,7 +7,7 @@
 
 namespace
 {
-    const char *HTML_ROOT = "/home/user/general_server/frontend";
+    const char *STATIC_ROOT = "./static";
 }
 
 FileResource::FileResource()
@@ -31,10 +31,13 @@ void FileResource::reset()
 
 FileResource::Result FileResource::load(const char *url)
 {
+    if (url == nullptr)
+        return BAD_REQUEST;
+
     reset();
 
-    std::strcpy(g_filePath, HTML_ROOT);
-    int len = std::strlen(HTML_ROOT);
+    std::strcpy(g_filePath, STATIC_ROOT);
+    int len = std::strlen(STATIC_ROOT);
     std::strncpy(g_filePath + len, url, FILE_PATH_LEN - len - 1);
 
     if (stat(g_filePath, &g_fileStat) < 0)

@@ -4,28 +4,21 @@
 #include <cerrno>
 #include <cstring>
 #include <netinet/in.h>
-#include <string>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 
 int HttpConn::g_epollFd = -1;
-UserRepository HttpConn::g_userRepository;
-int HttpConn::g_userCount = 0;
+int HttpConn::g_connectionCount = 0;
 
 void HttpConn::setEpollFd(int epollFd)
 {
     g_epollFd = epollFd;
 }
 
-bool HttpConn::initUserRepository(MysqlConnPool *connPool)
+int HttpConn::connectionCount()
 {
-    return g_userRepository.init(connPool);
-}
-
-int HttpConn::userCount()
-{
-    return g_userCount;
+    return g_connectionCount;
 }
 
 void HttpConn::init(int sockFd, const sockaddr_in &addr)
@@ -33,7 +26,7 @@ void HttpConn::init(int sockFd, const sockaddr_in &addr)
     g_sockFd = sockFd;
     g_address = addr;
     fd_event::add(g_epollFd, sockFd, true);
-    ++g_userCount;
+    ++g_connectionCount;
 
     reset();
 }
@@ -44,7 +37,7 @@ void HttpConn::close()
     {
         fd_event::remove(g_epollFd, g_sockFd);
         g_sockFd = -1;
-        --g_userCount;
+        --g_connectionCount;
     }
 }
 
@@ -100,17 +93,26 @@ bool HttpConn::write()
                 continue;
             else if (errno == EAGAIN || errno == EWOULDBLOCK) // 缓冲区满
             {
-                if (g_bytesHaveSent >= g_response.bufferSize())
+                if (g_responseMode == RESPONSE_PROXY)
                 {
-                    size_t offset = g_bytesHaveSent - g_response.bufferSize();
-                    g_iov[0].iov_len = 0;
-                    g_iov[1].iov_base = g_fileResource.data() + offset;
-                    g_iov[1].iov_len = g_bytesToSend;
+                    g_iov[0].iov_base = const_cast<char *>(g_upstreamResponse.raw.data()) + g_bytesHaveSent;
+                    g_iov[0].iov_len = g_bytesToSend;
+                    g_iovCount = 1;
                 }
                 else
                 {
-                    g_iov[0].iov_base = g_response.buffer() + g_bytesHaveSent;
-                    g_iov[0].iov_len = g_response.bufferSize() - g_bytesHaveSent;
+                    if (g_bytesHaveSent >= g_response.bufferSize())
+                    {
+                        size_t offset = g_bytesHaveSent - g_response.bufferSize();
+                        g_iov[0].iov_len = 0;
+                        g_iov[1].iov_base = g_fileResource.data() + offset;
+                        g_iov[1].iov_len = g_bytesToSend;
+                    }
+                    else
+                    {
+                        g_iov[0].iov_base = g_response.buffer() + g_bytesHaveSent;
+                        g_iov[0].iov_len = g_response.bufferSize() - g_bytesHaveSent;
+                    }
                 }
                 fd_event::mod(g_epollFd, g_sockFd, EPOLLOUT);
                 return true;
@@ -123,6 +125,10 @@ bool HttpConn::write()
         {
             g_fileResource.reset();
             fd_event::mod(g_epollFd, g_sockFd, EPOLLIN);
+
+            if (g_responseMode == RESPONSE_PROXY)
+                return false;
+
             if (g_requestParser.keepAlive())
             {
                 reset();
@@ -134,7 +140,7 @@ bool HttpConn::write()
     }
 }
 
-void HttpConn::process(MYSQL *conn)
+void HttpConn::process()
 {
     ProcessResult ret = parseRequest();
     if (ret == NO_REQUEST)
@@ -143,7 +149,7 @@ void HttpConn::process(MYSQL *conn)
         return;
     }
     else if (ret == REQUEST_READY)
-        ret = handleRequest(conn);
+        ret = handleRequest();
     bool responseReady = buildResponse(ret);
     if (!responseReady)
     {
@@ -158,11 +164,13 @@ void HttpConn::reset()
     g_requestParser.reset();
     g_fileResource.reset();
     g_response.init();
+    g_upstreamResponse.reset();
 
     std::memset(g_iov, 0, sizeof(g_iov));
     g_iovCount = 0;
     g_bytesHaveSent = 0;
     g_bytesToSend = 0;
+    g_responseMode = RESPONSE_NONE;
 }
 
 HttpConn::ProcessResult HttpConn::parseRequest()
@@ -182,26 +190,35 @@ HttpConn::ProcessResult HttpConn::parseRequest()
     }
 }
 
-HttpConn::ProcessResult HttpConn::handleRequest(MYSQL *conn)
+HttpConn::ProcessResult HttpConn::handleRequest()
 {
-    const char *targetUrl = g_requestDispatcher.resolve(
-        g_requestParser.url(),
-        g_requestParser.cgi(),
-        g_requestParser.content(),
-        conn,
-        g_userRepository);
+    ResolvedRoute route = g_requestDispatcher.resolve(g_requestParser.url(), g_requestParser.query());
 
-    FileResource::Result result = g_fileResource.load(targetUrl);
-    switch (result)
+    switch (route.type)
     {
-    case FileResource::OK:
-        return FILE_READY;
-    case FileResource::BAD_REQUEST:
-        return BAD_REQUEST;
-    case FileResource::FORBIDDEN:
-        return FORBIDDEN_REQUEST;
-    case FileResource::NOT_FOUND:
-        return NO_RESOURCE;
+    case ResolvedRoute::PROXY:
+    {
+        if (g_upstreamClient.forward(route.proxyRequestTarget, g_requestParser, g_upstreamResponse))
+            return PROXY_READY;
+        return BAD_GATEWAY;
+    }
+    case ResolvedRoute::LOCAL:
+    {
+        FileResource::Result result = g_fileResource.load(route.localPath);
+        switch (result)
+        {
+        case FileResource::OK:
+            return FILE_READY;
+        case FileResource::BAD_REQUEST:
+            return BAD_REQUEST;
+        case FileResource::FORBIDDEN:
+            return FORBIDDEN_REQUEST;
+        case FileResource::NOT_FOUND:
+            return NO_RESOURCE;
+        default:
+            return INTERNAL_ERROR;
+        }
+    }
     default:
         return INTERNAL_ERROR;
     }
@@ -235,6 +252,12 @@ bool HttpConn::buildResponse(ProcessResult processResult)
             return false;
         break;
     }
+    case BAD_GATEWAY:
+    {
+        if (!g_response.buildBadGateway(g_requestParser.keepAlive()))
+            return false;
+        break;
+    }
     case FILE_READY:
     {
         if (!g_response.buildOkHeader(g_fileResource.size(), g_requestParser.keepAlive()))
@@ -256,6 +279,22 @@ bool HttpConn::buildResponse(ProcessResult processResult)
             g_iovCount = 1;
             g_bytesToSend = g_response.bufferSize();
         }
+        g_responseMode = RESPONSE_LOCAL;
+        return true;
+    }
+    case PROXY_READY:
+    {
+        if (g_upstreamResponse.raw.empty())
+            return false;
+
+        g_iov[0].iov_base = const_cast<char *>(g_upstreamResponse.raw.data());
+        g_iov[0].iov_len = g_upstreamResponse.raw.size();
+        g_iovCount = 1;
+
+        g_bytesHaveSent = 0;
+        g_bytesToSend = g_upstreamResponse.raw.size();
+        g_responseMode = RESPONSE_PROXY;
+
         return true;
     }
     default:
@@ -267,6 +306,7 @@ bool HttpConn::buildResponse(ProcessResult processResult)
 
     g_bytesHaveSent = 0;
     g_bytesToSend = g_response.bufferSize();
+    g_responseMode = RESPONSE_LOCAL;
 
     return true;
 }

@@ -3,15 +3,13 @@
 
 #include <netinet/in.h>
 #include <sys/uio.h>
-#include <unordered_map>
-#include <string>
 
-#include "mysql_conn_pool.h"
 #include "file_resource.h"
 #include "http_request_dispatcher.h"
 #include "http_request_parser.h"
 #include "http_response.h"
-#include "user_repository.h"
+#include "upstream_client.h"
+#include "upstream_response.h"
 
 class HttpConn
 {
@@ -21,10 +19,19 @@ public:
         NO_REQUEST,
         REQUEST_READY,
         FILE_READY,
+        PROXY_READY,
         BAD_REQUEST,
         FORBIDDEN_REQUEST,
         NO_RESOURCE,
-        INTERNAL_ERROR
+        INTERNAL_ERROR,
+        BAD_GATEWAY
+    };
+
+    enum ResponseMode
+    {
+        RESPONSE_NONE,
+        RESPONSE_LOCAL,
+        RESPONSE_PROXY
     };
 
 public:
@@ -37,24 +44,22 @@ public:
     void close();
     bool read();
     bool write();
-    void process(MYSQL *conn);
+    void process();
 
 public:
     // Shared connection state
     static void setEpollFd(int epollFd);
-    static bool initUserRepository(MysqlConnPool *connPool);
-    static int userCount();
+    static int connectionCount();
 
 private:
     void reset();
     ProcessResult parseRequest();
-    ProcessResult handleRequest(MYSQL *conn);
+    ProcessResult handleRequest();
     bool buildResponse(ProcessResult processResult);
 
 private:
     static int g_epollFd;
-    static UserRepository g_userRepository;
-    static int g_userCount;
+    static int g_connectionCount;
 
 private:
     // Connection state
@@ -66,12 +71,15 @@ private:
     int g_iovCount;
     size_t g_bytesHaveSent;
     size_t g_bytesToSend;
+    ResponseMode g_responseMode;
 
     // Coordinated subsystems
     HttpRequestParser g_requestParser;
     HttpRequestDispatcher g_requestDispatcher;
     FileResource g_fileResource;
     HttpResponse g_response;
+    UpstreamClient g_upstreamClient;
+    UpstreamResponse g_upstreamResponse;
 };
 
 #endif

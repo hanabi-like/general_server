@@ -13,15 +13,15 @@ void HttpRequestParser::reset()
 {
     g_method = GET;
     g_url = 0;
+    g_query = 0;
     g_version = 0;
 
     g_host = 0;
     g_linger = false;
+    g_contentType = 0;
     g_contentLength = 0;
 
     g_content = 0;
-
-    g_cgi = false;
 
     g_checkStatus = CHECK_STATE_REQUEST_LINE;
 
@@ -134,10 +134,7 @@ HttpRequestParser::parseRequestLine(char *text)
     if (strcasecmp(method, "GET") == 0)
         g_method = GET;
     else if (strcasecmp(method, "POST") == 0)
-    {
         g_method = POST;
-        g_cgi = true;
-    }
     else
         return BAD_REQUEST;
 
@@ -159,6 +156,12 @@ HttpRequestParser::parseRequestLine(char *text)
 
     if (!g_url || g_url[0] != '/')
         return BAD_REQUEST;
+
+    g_query = std::strchr(g_url, '?');
+    if (g_query != nullptr)
+    {
+        *g_query++ = '\0';
+    }
 
     if (std::strlen(g_url) == 1)
         std::strcat(g_url, "home.html");
@@ -192,6 +195,12 @@ HttpRequestParser::ParseResult HttpRequestParser::parseRequestHeaders(char
         if (strcasecmp(text, "keep-alive") == 0)
             g_linger = true;
     }
+    else if (strncasecmp(text, "Content-Type:", 13) == 0)
+    {
+        text += 13;
+        text += strspn(text, " \t");
+        g_contentType = text;
+    }
     else if (strncasecmp(text, "Content-Length:", 15) == 0)
     {
         text += 15;
@@ -224,6 +233,11 @@ char *HttpRequestParser::url() const
     return g_url;
 }
 
+char *HttpRequestParser::query() const
+{
+    return g_query;
+}
+
 char *HttpRequestParser::version() const
 {
     return g_version;
@@ -239,6 +253,11 @@ bool HttpRequestParser::keepAlive() const
     return g_linger;
 }
 
+char *HttpRequestParser::contentType() const
+{
+    return g_contentType;
+}
+
 int HttpRequestParser::contentLength() const
 {
     return g_contentLength;
@@ -247,9 +266,4 @@ int HttpRequestParser::contentLength() const
 char *HttpRequestParser::content() const
 {
     return g_content;
-}
-
-bool HttpRequestParser::cgi() const
-{
-    return g_cgi;
 }

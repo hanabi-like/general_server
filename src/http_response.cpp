@@ -9,16 +9,19 @@ namespace
     const char *OK_200_TITLE = "OK";
 
     const char *ERROR_400_TITLE = "Bad Request";
-    const char *ERROR_400_FORM = "Your request has bad syntax or is inherently impossible to satisfy.\n";
+    const char *ERROR_400_FORM = "Bad Request\n";
 
     const char *ERROR_403_TITLE = "Forbidden";
-    const char *ERROR_403_FORM = "You do not have permission to get file from this server.\n";
+    const char *ERROR_403_FORM = "Forbidden\n";
 
     const char *ERROR_404_TITLE = "Not Found";
-    const char *ERROR_404_FORM = "The requested file was not found on this server.\n";
+    const char *ERROR_404_FORM = "Not Found\n";
 
     const char *ERROR_500_TITLE = "Internal Error";
-    const char *ERROR_500_FORM = "There was an unusual problem serving the requested file.\n";
+    const char *ERROR_500_FORM = "Internal Error\n";
+
+    const char *ERROR_502_TITLE = "Bad Gateway";
+    const char *ERROR_502_FORM = "Bad Gateway\n";
 }
 
 HttpResponse::HttpResponse()
@@ -55,6 +58,11 @@ bool HttpResponse::buildNotFound(bool linger)
 bool HttpResponse::buildInternalError(bool linger)
 {
     return buildErrorResponse(500, ERROR_500_TITLE, ERROR_500_FORM, linger);
+}
+
+bool HttpResponse::buildBadGateway(bool linger)
+{
+    return buildErrorResponse(502, ERROR_502_TITLE, ERROR_502_FORM, linger);
 }
 
 char *HttpResponse::buffer()

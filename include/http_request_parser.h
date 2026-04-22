@@ -54,12 +54,13 @@ public:
 
     Method method() const;
     char *url() const;
+    char *query() const;
     char *version() const;
     char *host() const;
     bool keepAlive() const;
+    char *contentType() const;
     int contentLength() const;
     char *content() const;
-    bool cgi() const;
 
 private:
     LineStatus parseLine();
@@ -71,15 +72,15 @@ private:
     // request line
     Method g_method;
     char *g_url;
+    char *g_query;
     char *g_version;
     // request headers
     char *g_host;
     bool g_linger;
+    char *g_contentType;
     int g_contentLength;
     // request body
     char *g_content;
-
-    bool g_cgi;
 
     CheckStatus g_checkStatus;
 
