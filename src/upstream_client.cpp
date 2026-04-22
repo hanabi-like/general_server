@@ -45,7 +45,7 @@ bool UpstreamClient::forward(const ProxyRequestTarget &proxyRequestTarget,
     if (proxyRequestTarget.service.host == nullptr ||
         proxyRequestTarget.service.port <= 0 ||
         proxyRequestTarget.service.port > 65535 ||
-        proxyRequestTarget.path == nullptr)
+        proxyRequestTarget.path.empty())
         return false;
 
     std::string requestText;
