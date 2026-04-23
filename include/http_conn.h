@@ -53,9 +53,14 @@ public:
 
 private:
     void reset();
+
+    // Request lifecycle
     ProcessResult parseRequest();
     ProcessResult handleRequest();
     bool buildResponse(ProcessResult processResult);
+
+    // Send state
+    void refreshIov();
 
 private:
     static int g_epollFd;
