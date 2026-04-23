@@ -22,35 +22,38 @@
         <form id="getGameCharacter">
             <input type="submit" value="查询角色">
         </form>
-
         <div id="GameCharacter"></div>
         <p id="GameCharacterMessage"></p>
 
         <h2>角色添加</h2>
+        region:
+        <select id="characterRegion" name="region">
+            <option value="" selected disabled>请选择</option>
+            <option value="Genshin">原神</option>
+            <option value="God">神</option>
+            <option value="Nod-Krai">挪德卡莱</option>
+            <option value="Mondstadt">蒙德</option>
+            <option value="Liyue">璃月</option>
+            <option value="Inazuma">稻妻</option>
+            <option value="Sumeru">须弥</option>
+            <option value="Fontaine">枫丹</option>
+            <option value="Natlan">纳塔</option>
+        </select>
+        <br>
+
+        <h3>当前角色</h3>
+        <div id="GameCharacterRegion"></div>
+        <p id="GameCharacterRegionMessage"></p>
+
         <form id="saveGameCharacter">
-            order:<input type="number" id="characterOrder" name="order">
-            <br>
-            name:<input type="text" id="characterName" name="name">
+            name:
+            <input type="text" id="characterName" name="name">
             <br>
             sex:
             <select id="characterSex" name="sex">
                 <option value="" selected disabled>请选择</option>
                 <option value="0">女</option>
                 <option value="1">男</option>
-            </select>
-            <br>
-            region:
-            <select id="characterRegion" name="region">
-                <option value="" selected disabled>请选择</option>
-                <option value="Genshin">原神</option>
-                <option value="God">神</option>
-                <option value="Nod-Krai">挪德卡莱</option>
-                <option value="Mondstadt">蒙德</option>
-                <option value="Liyue">璃月</option>
-                <option value="Inazuma">稻妻</option>
-                <option value="Sumeru">须弥</option>
-                <option value="Fontaine">枫丹</option>
-                <option value="Natlan">纳塔</option>
             </select>
             <br>
             quality:
@@ -60,172 +63,24 @@
                 <option value="5">五星</option>
             </select>
             <br>
+            refName:
+            <select id="characterRefName" name="refName">
+                <option value="" selected disabled>请选择</option>
+            </select>
+            <br>
+            insertPos:
+            <select id="characterInsertPos" name="insertPos">
+                <option value="" selected disabled>请选择</option>
+                <option value="BEFORE">之前</option>
+                <option value="AFTER">之后</option>
+            </select>
+            <br>
             <input type="submit" value="添加角色">
         </form>
-
         <p id="message"></p>
     </div>
 
-    <script>
-        if (sessionStorage.getItem("gameInformationManagerLogin") !== "true") {
-            window.location.href = "/game-information-manager/login.html";
-        }
-
-        function xUserName() {
-            return sessionStorage.getItem("gameInformationManagerXUserName");
-        }
-
-        function gameName() {
-            return document.getElementById("gameName").value;
-        }
-
-        function getGameCharacterUrl() {
-            return "/api/game-information-manager/game/" + gameName() + "/character";
-        }
-
-        function formatGameCharacter(text) {
-            var container = document.getElementById("GameCharacter");
-            var message = document.getElementById("GameCharacterMessage");
-
-            container.innerHTML = "";
-            message.textContent = "";
-
-            var data = null;
-
-            try {
-                data = text ? JSON.parse(text) : null;
-            } catch (e) {
-                message.textContent = "格式错误";
-                return;
-            }
-
-            if (!data) {
-                message.textContent = "暂无内容";
-                return;
-            }
-
-            var title = document.createElement("h3");
-            title.textContent = data.gameName || "未知游戏";
-            container.appendChild(title);
-
-            var region = data.gameCharacterRegionResponseDTOList;
-
-            if (!region || region.length === 0) {
-                message.textContent = "暂无角色";
-                return;
-            }
-
-            region.forEach(function (regionItem) {
-                var regionTitle = document.createElement("h4");
-                regionTitle.textContent = regionItem.region || "未知归属";
-                container.appendChild(regionTitle);
-
-                var name = regionItem.nameList;
-
-                if (!name || name.length === 0) {
-                    var empty = document.createElement("p");
-                    empty.textContent = "暂无角色";
-                    container.appendChild(empty);
-                    return;
-                }
-
-                var nameLine = document.createElement("p");
-                nameLine.textContent = name.join(" ");
-
-                container.appendChild(nameLine);
-            });
-        }
-
-        document.getElementById("getGameCharacter").addEventListener("submit", function (event) {
-            event.preventDefault();
-
-            if (!xUserName()) {
-                window.location.href = "/game-information-manager/login.html";
-                return;
-            }
-
-            var result = document.getElementById("GameCharacter");
-            result.textContent = "";
-
-            if (!gameName()) {
-                result.textContent = "进行游戏选择"
-                return;
-            }
-
-            result.textContent = "查询中...";
-
-            fetch(getGameCharacterUrl(), {
-                method: "GET",
-                headers: {
-                    "X-User-Name": xUserName()
-                }
-            }).then(function (response) {
-                return response.text().then(function (text) {
-                    if (response.status >= 200 && response.status < 300) {
-                        formatGameCharacter(text);
-                    } else {
-                        document.getElementById("GameCharacterMessage").textContent = text || "查询失败";
-                    }
-                });
-            }).catch(function () {
-                result.textContent = "服务暂不可用";
-            });
-        });
-
-        document.getElementById("saveGameCharacter").addEventListener("submit", function (event) {
-            event.preventDefault();
-
-            var message = document.getElementById("message");
-            message.textContent = "";
-
-            if (!xUserName()) {
-                window.location.href = "/game-information-manager/login.html";
-                return;
-            }
-
-            if (!gameName()) {
-                message.textContent = "进行游戏选择"
-                return;
-            }
-
-            var order = document.getElementById("characterOrder").value;
-            var name = document.getElementById("characterName").value;
-            var sex = document.getElementById("characterSex").value;
-            var region = document.getElementById("characterRegion").value;
-            var quality = document.getElementById("characterQuality").value;
-
-            if (order === "" || name === "" || sex === "" || region === "" || quality === "") {
-                message.textContent = "角色信息补充完整";
-                return;
-            }
-
-            fetch(getGameCharacterUrl(), {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-User-Name": xUserName()
-                },
-                body: JSON.stringify({
-                    order: Number(order),
-                    name: name,
-                    sex: Number(sex),
-                    region: region,
-                    quality: Number(quality),
-
-                })
-            }).then(function (response) {
-                return response.text().then(function (text) {
-                    if (response.status >= 200 && response.status < 300) {
-                        message.textContent = text || "添加成功";
-                    } else {
-                        message.textContent = text || "添加失败";
-                    }
-                });
-            }).catch(function () {
-                message.textContent = "服务暂不可用";
-            });
-        });
-    </script>
+    <script src="/game-information-manager/game-information.js"></script>
 </body>
 
 </html>
