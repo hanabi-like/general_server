@@ -86,6 +86,9 @@ bool HttpConn::write()
         {
             g_bytesHaveSent += temp;
             g_bytesToSend -= temp;
+
+            if (g_bytesToSend > 0)
+                refreshIov();
         }
         else if (temp < 0)
         {
@@ -93,27 +96,7 @@ bool HttpConn::write()
                 continue;
             else if (errno == EAGAIN || errno == EWOULDBLOCK) // 缓冲区满
             {
-                if (g_responseMode == RESPONSE_PROXY)
-                {
-                    g_iov[0].iov_base = const_cast<char *>(g_upstreamResponse.raw.data()) + g_bytesHaveSent;
-                    g_iov[0].iov_len = g_bytesToSend;
-                    g_iovCount = 1;
-                }
-                else
-                {
-                    if (g_bytesHaveSent >= g_response.bufferSize())
-                    {
-                        size_t offset = g_bytesHaveSent - g_response.bufferSize();
-                        g_iov[0].iov_len = 0;
-                        g_iov[1].iov_base = g_fileResource.data() + offset;
-                        g_iov[1].iov_len = g_bytesToSend;
-                    }
-                    else
-                    {
-                        g_iov[0].iov_base = g_response.buffer() + g_bytesHaveSent;
-                        g_iov[0].iov_len = g_response.bufferSize() - g_bytesHaveSent;
-                    }
-                }
+                refreshIov();
                 fd_event::mod(g_epollFd, g_sockFd, EPOLLOUT);
                 return true;
             }
@@ -309,4 +292,49 @@ bool HttpConn::buildResponse(ProcessResult processResult)
     g_responseMode = RESPONSE_LOCAL;
 
     return true;
+}
+
+void HttpConn::refreshIov()
+{
+    std::memset(g_iov, 0, sizeof(g_iov));
+    g_iovCount = 0;
+
+    if (g_bytesToSend == 0)
+        return;
+
+    if (g_responseMode == RESPONSE_PROXY)
+    {
+        g_iov[0].iov_base = const_cast<char *>(g_upstreamResponse.raw.data()) + g_bytesHaveSent;
+        g_iov[0].iov_len = g_bytesToSend;
+        g_iovCount = 1;
+        return;
+    }
+
+    size_t headerSize = g_response.bufferSize();
+    size_t fileSize = static_cast<size_t>(g_fileResource.size());
+
+    if (g_bytesHaveSent < headerSize)
+    {
+        g_iov[0].iov_base = g_response.buffer() + g_bytesHaveSent;
+        g_iov[0].iov_len = headerSize - g_bytesHaveSent;
+        g_iovCount = 1;
+
+        if (fileSize > 0)
+        {
+            g_iov[1].iov_base = g_fileResource.data();
+            g_iov[1].iov_len = fileSize;
+            g_iovCount = 2;
+        }
+
+        return;
+    }
+
+    size_t fileOffset = g_bytesHaveSent - headerSize;
+
+    if (fileOffset < fileSize)
+    {
+        g_iov[0].iov_base = g_fileResource.data() + fileOffset;
+        g_iov[0].iov_len = fileSize - fileOffset;
+        g_iovCount = 1;
+    }
 }
