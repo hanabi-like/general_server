@@ -22,7 +22,8 @@
             <input type="submit" value="查询角色">
         </form>
 
-        <pre id="GameCharacter"></pre>
+        <div id="GameCharacter"></div>
+        <p id="GameCharacterMessage"></p>
 
         <h2>角色添加</h2>
         <form id="saveGameCharacter">
@@ -39,7 +40,7 @@
             <input type="submit" value="添加角色">
         </form>
 
-        <pre id="message"></pre>
+        <p id="message"></p>
     </div>
 
     <script>
@@ -57,6 +58,59 @@
 
         function getGameCharacterUrl() {
             return "/api/game-information-manager/game/" + gameName() + "/character";
+        }
+
+        function formatGameCharacter(text) {
+            var container = document.getElementById("GameCharacter");
+            var message = document.getElementById("GameCharacterMessage");
+
+            container.innerHTML = "";
+            message.textContent = "";
+
+            var data = null;
+
+            try {
+                data = text ? JSON.parse(text) : null;
+            } catch (e) {
+                message.textContent = "格式错误";
+                return;
+            }
+
+            if (!data) {
+                message.textContent = "暂无内容";
+                return;
+            }
+
+            var title = document.createElement("h3");
+            title.textContent = data.gameName || "未知游戏";
+            container.appendChild(title);
+
+            var region = data.gameCharacterRegionResponseDTOList;
+
+            if (!region || region.length === 0) {
+                message.textContent = "暂无角色";
+                return;
+            }
+
+            region.forEach(function (regionItem) {
+                var regionTitle = document.createElement("h4");
+                regionTitle.textContent = regionItem.region || "未知归属";
+                container.appendChild(regionTitle);
+
+                var name = regionItem.nameList;
+
+                if (!name || name.length === 0) {
+                    var empty = document.createElement("p");
+                    empty.textContent = "暂无角色";
+                    container.appendChild(empty);
+                    return;
+                }
+
+                var nameLine = document.createElement("p");
+                nameLine.textContent = name.join(" ");
+
+                container.appendChild(nameLine);
+            });
         }
 
         document.getElementById("getGameCharacter").addEventListener("submit", function (event) {
@@ -77,7 +131,11 @@
                 }
             }).then(function (response) {
                 return response.text().then(function (text) {
-                    result.textContent = text || "暂无内容";
+                    if (response.status >= 200 && response.status < 300) {
+                        formatGameCharacter(text);
+                    } else {
+                        document.getElementById("GameCharacterMessage").textContent = text || "查询失败";
+                    }
                 });
             }).catch(function () {
                 result.textContent = "服务暂不可用";
