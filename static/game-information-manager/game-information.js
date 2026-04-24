@@ -27,6 +27,15 @@ function getValue(id) {
     return getElement(id).value;
 }
 
+function getRegionLabel(region) {
+    for (var option of getElement("characterRegion").options) {
+        if (option.value === region)
+            return option.textContent;
+    }
+
+    return region;
+}
+
 function resetGameCharacterRegion() {
     getElement("GameCharacterRegion").innerHTML = "";
     getElement("GameCharacterRegionMessage").textContent = "";
@@ -75,7 +84,7 @@ function formatGameCharacter(text) {
 
     data.gameCharacterRegionResponseDTOList.forEach(function (item) {
         var region = document.createElement("h4");
-        region.textContent = item.region;
+        region.textContent = getRegionLabel(item.region);
         getElement("GameCharacter").appendChild(region);
 
         if (!item.nameList || item.nameList.length === 0) {
