@@ -17,9 +17,15 @@ namespace
         "127.0.0.1",
         8081);
 
+    const UpstreamService ZEPHYRA_SERVICE(
+        "zephyra",
+        "127.0.0.1",
+        8082);
+
     const ProxyRoute PROXY_ROUTES[] = {
-        {"/api/game-information-manager/auth/", "/api/auth/", GAME_INFORMATION_MANAGER_SERVICE},
-        {"/api/game-information-manager/game/", "/api/game/", GAME_INFORMATION_MANAGER_SERVICE}};
+        {"/api/game-information-manager/auth", "/api/auth", GAME_INFORMATION_MANAGER_SERVICE},
+        {"/api/game-information-manager/game", "/api/game", GAME_INFORMATION_MANAGER_SERVICE},
+        {"/api/zephyra/tools", "/api/tools", ZEPHYRA_SERVICE}};
 
     bool startWith(const char *value, const char *prefix)
     {
