@@ -1,0 +1,11 @@
+# Only application build inputs are sent to the builder.
+*
+!Dockerfile
+!.dockerignore
+!CMakeLists.txt
+!include/
+!include/**
+!src/
+!src/**
+!static/
+!static/**
